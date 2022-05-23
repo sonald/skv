@@ -1,54 +1,44 @@
-package disk
+package kv
 
 import (
 	"fmt"
-	"github.com/sonald/skv/pkg/storage"
 	"math/rand"
 	"testing"
 )
 
-func TestPut(t *testing.T) {
-	s := NewDiskStorage(storage.Options{
-		Args: map[string]interface{}{
-			SegmentNameOpt:          fmt.Sprintf("%s/segment", t.TempDir()),
-			storage.SegmentOpenMode: storage.SegmentOpenModeWR,
-		}})
-
-	defer s.Close()
+func TestKV_RandomPut(t *testing.T) {
+	db := NewKV()
+	defer db.Close()
 
 	r := rand.New(rand.NewSource(0xdeadbeef))
 
-	t.Run("put", func(t *testing.T) {
-		err := s.Put("key1", "value1")
-		if err != nil {
-			t.Errorf("put failed: %s\n", err.Error())
-		}
-	})
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("key%02d", r.Intn(40))
+		db.Put(key, fmt.Sprintf("value%d", r.Int31()))
+	}
+}
+
+func TestKV_Get(t *testing.T) {
+	db := NewKV()
+	defer db.Close()
+
+	r := rand.New(rand.NewSource(0xdeadbeef))
+
+	db.Put("key99", "value99")
 
 	for i := 0; i < 100; i++ {
 		key := fmt.Sprintf("key%02d", r.Intn(40))
-		s.Put(key, fmt.Sprintf("value%d", r.Int31()))
+		db.Put(key, fmt.Sprintf("value%d", r.Int31()))
 	}
 
-}
-
-func TestDiskStorage_Get(t *testing.T) {
-	s := NewDiskStorage(storage.Options{
-		Args: map[string]interface{}{
-			SegmentNameOpt:          fmt.Sprintf("%s/segment", t.TempDir()),
-			storage.SegmentOpenMode: storage.SegmentOpenModeRW,
-		}})
-
-	defer s.Close()
-
 	t.Run("get", func(t *testing.T) {
-		err := s.Put("key1", "value1")
+		err := db.Put("key1", "value1")
 		if err != nil {
 			t.Errorf("put key1 failed: %s\n", err.Error())
 			return
 		}
 
-		v, err := s.Get("key1")
+		v, err := db.Get("key1")
 		if err != nil {
 			t.Errorf("get key1 failed: %s\n", err.Error())
 			return
@@ -66,14 +56,14 @@ func TestDiskStorage_Get(t *testing.T) {
 		var count = 40 // exceed threshold
 		for i := 0; i < count; i++ {
 			lastVal = fmt.Sprintf("value%04d", r.Int31())
-			err := s.Put(key, lastVal)
+			err := db.Put(key, lastVal)
 			if err != nil {
 				t.Errorf("put key failed: %s\n", err.Error())
 				return
 			}
 		}
 
-		v, err := s.Get(key)
+		v, err := db.Get(key)
 		if err != nil {
 			t.Errorf("get key failed: %s\n", err.Error())
 			return
@@ -91,13 +81,13 @@ func TestDiskStorage_Get(t *testing.T) {
 		var count = 40 // exceed threshold
 		for i := 0; i < count; i++ {
 			lastVal = fmt.Sprintf("value%04d", r.Int31())
-			err := s.Put(key, lastVal)
+			err := db.Put(key, lastVal)
 			if err != nil {
 				t.Errorf("put key failed: %s\n", err.Error())
 				return
 			}
 
-			v, err := s.Get(key)
+			v, err := db.Get(key)
 			if err != nil {
 				t.Errorf("get key failed: %s\n", err.Error())
 				return
@@ -116,14 +106,14 @@ func TestDiskStorage_Get(t *testing.T) {
 			{"key4", "value4"},
 		}
 		for _, d := range data {
-			err := s.Put(d[0], d[1])
+			err := db.Put(d[0], d[1])
 			if err != nil {
 				t.Errorf("put key failed: %s\n", err.Error())
 				return
 			}
 		}
 
-		v, err := s.Get("key4")
+		v, err := db.Get("key4")
 		if err != nil {
 			t.Errorf("get key failed: %s\n", err.Error())
 		}
@@ -132,13 +122,24 @@ func TestDiskStorage_Get(t *testing.T) {
 			t.Errorf("get key4's value failed")
 		}
 
-		v, err = s.Get("key3")
+		v, err = db.Get("key3")
 		if err != nil {
 			t.Errorf("get key failed: %s\n", err.Error())
 		}
 
 		if v != "value3" {
 			t.Errorf("get key3's value failed")
+		}
+	})
+
+	t.Run("oldest", func(t *testing.T) {
+		v, err := db.Get("key99")
+		if err != nil {
+			t.Errorf("get key failed: %s\n", err.Error())
+		}
+
+		if v != "value99" {
+			t.Errorf("get key99's value failed")
 		}
 	})
 }

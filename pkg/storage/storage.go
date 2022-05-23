@@ -1,5 +1,7 @@
 package storage
 
+import "errors"
+
 type Storage interface {
 	Put(key string, value string) error
 	Get(key string) (string, error)
@@ -16,6 +18,12 @@ type Storage interface {
 type Options struct {
 	Args map[string]interface{}
 }
+
+const Megabyte = 1048576
+
+var (
+	ErrNotFound = errors.New("key does not found")
+)
 
 const (
 	SegmentOpenMode = "SegmentOpenMode"

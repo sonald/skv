@@ -53,7 +53,7 @@ func (ms MemStorage) Put(key string, value string) error {
 func (ms MemStorage) Get(key string) (string, error) {
 	elem := ms.sl.Get(key)
 	if elem == nil {
-		return "", nil
+		return "", storage.ErrNotFound
 	}
 
 	return elem.Value.(string), nil

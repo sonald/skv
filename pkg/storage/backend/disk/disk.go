@@ -7,10 +7,10 @@ import (
 	"github.com/sonald/skv/internal/pkg/utils"
 	"github.com/sonald/skv/pkg/storage"
 	"github.com/sonald/skv/pkg/storage/backend/noop"
-
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 func init() {
@@ -22,51 +22,12 @@ type DiskStorage struct {
 	segment string
 	w       io.WriteCloser
 	r       io.ReadSeekCloser
+	index   *Index
 }
 
 const (
 	SegmentNameOpt = "name"
 )
-
-func (ds *DiskStorage) Close() {
-	if ds.r != nil {
-		ds.r.Close()
-	}
-
-	if ds.w != nil {
-		ds.w.Close()
-	}
-
-}
-
-func (ds *DiskStorage) Size() int {
-	return 0
-}
-
-func (ds *DiskStorage) Count() int {
-	return 0
-}
-
-func (ds *DiskStorage) Scan(f func(k string, v string) bool) {
-	var err error
-	br := bufio.NewReader(ds.r)
-	for {
-		var key, val string
-		key, err = readSizedValue(br)
-		if err == io.EOF {
-			break
-		}
-
-		val, err = readSizedValue(br)
-		if err != nil {
-			break
-		}
-
-		if !f(key, val) {
-			break
-		}
-	}
-}
 
 func NewDiskStorage(options storage.Options) storage.Storage {
 	ds := &DiskStorage{
@@ -104,6 +65,12 @@ func NewDiskStorage(options storage.Options) storage.Storage {
 	return ds
 }
 
+func (ds *DiskStorage) LoadIndex() {
+	if ds.r != nil && ds.index == nil && !strings.HasSuffix(ds.segment, "_index") {
+		ds.index = NewIndexFor(ds.segment)
+	}
+}
+
 func strToBytes(s string) ([]byte, error) {
 	szBuf := make([]byte, 4)
 	binary.BigEndian.PutUint32(szBuf, uint32(len(s)))
@@ -138,42 +105,22 @@ func (ds *DiskStorage) Put(key, value string) error {
 	return w.Flush()
 }
 
-func readSizedValue(r io.Reader) (string, error) {
-	var err error
-	szBuf := make([]byte, 4)
-	_, err = r.Read(szBuf)
-	if err != nil {
-		return "", err
-	}
-	sz := binary.BigEndian.Uint32(szBuf)
-
-	payload := make([]byte, int(sz))
-	r.Read(payload)
-	if err != nil {
-		return "", err
-	}
-
-	return string(payload), nil
-}
-
-func skipSizedValue(r *bufio.Reader) error {
-	var err error
-	szBuf := make([]byte, 4)
-	_, err = r.Read(szBuf)
-	if err != nil {
-		return err
-	}
-	sz := binary.BigEndian.Uint32(szBuf)
-
-	_, err = r.Discard(int(sz))
-	return err
-}
-
 func (ds *DiskStorage) Get(key string) (string, error) {
 	var err error
 	var val string
+	var offset int64 = 0
 
-	_, err = ds.r.Seek(0, io.SeekStart)
+	// Lazy loading
+	ds.LoadIndex()
+
+	if ds.index != nil {
+		if offset, err = ds.index.Get(key); err != nil {
+			offset = 0
+		}
+		log.Printf("fast offset(%d) by index", offset)
+	}
+
+	_, err = ds.r.Seek(offset, io.SeekStart)
 	if err != nil {
 		return "", err
 	}
@@ -184,12 +131,11 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 			break
 		}
 
-		//log.Printf("read key: [%s]\n", keyRead)
+		log.Printf("read key: [%s]\n", keyRead)
 		if keyRead == key {
-			// get value
-			val, err = readSizedValue(br)
+			return readSizedValue(br)
 		} else {
-			err = skipSizedValue(br)
+			err = discardSizedValue(br)
 		}
 
 		if err != nil {
@@ -197,9 +143,51 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 		}
 	}
 
-	return val, err
+	return val, storage.ErrNotFound
 }
 
 func (ds *DiskStorage) Del(key string) error {
 	return nil
+}
+
+func (ds *DiskStorage) Close() {
+	if ds.r != nil {
+		ds.r.Close()
+	}
+
+	if ds.w != nil {
+		ds.w.Close()
+	}
+
+}
+
+func (ds *DiskStorage) Size() int {
+	return 0
+}
+
+func (ds *DiskStorage) Count() int {
+	return 0
+}
+
+func (ds *DiskStorage) Scan(f func(k string, v string) bool) {
+	var err error
+
+	ds.r.Seek(0, io.SeekStart)
+	br := bufio.NewReader(ds.r)
+	for {
+		var key, val string
+		key, err = readSizedValue(br)
+		if err == io.EOF {
+			break
+		}
+
+		val, err = readSizedValue(br)
+		if err != nil {
+			break
+		}
+
+		if !f(key, val) {
+			break
+		}
+	}
 }

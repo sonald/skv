@@ -40,8 +40,6 @@ type KV struct {
 	wg   sync.WaitGroup
 }
 
-const Megabyte = 1048576
-
 func (kv *KV) buildSegmentName(seq int) string {
 	return fmt.Sprintf("%s/segment%08d", kv.Root, seq)
 }
@@ -75,7 +73,29 @@ func (kv *KV) Put(key string, value string) error {
 }
 
 func (kv *KV) Get(key string) (string, error) {
-	return kv.memtable.Get(key)
+	val, err := kv.memtable.Get(key)
+	if err == nil {
+		return val, err
+	}
+
+	for i := kv.segmentSeq - 1; i >= 0; i-- {
+		ds := storage.GetStorage("disk", storage.Options{
+			Args: map[string]interface{}{
+				bd.SegmentNameOpt:       kv.buildSegmentName(i),
+				storage.SegmentOpenMode: storage.SegmentOpenModeRO,
+			},
+		})
+
+		defer ds.Close()
+		log.Printf("Get: fallback to %s\n", kv.buildSegmentName(i))
+
+		val, err = ds.Get(key)
+		if err == nil {
+			return val, err
+		}
+	}
+
+	return "", storage.ErrNotFound
 }
 
 func (kv *KV) Del(key string) error {
@@ -143,7 +163,7 @@ func NewKV() *KV {
 	kv := &KV{
 		memtable:           storage.GetStorage("mem", storage.Options{}),
 		DumpCountThreshold: 10,
-		DumpSizeThreshold:  Megabyte,
+		DumpSizeThreshold:  storage.Megabyte,
 		DumpPolicy:         DumpByCount,
 		Root:               "/tmp/skv",
 		jobs:               make(chan dumpJob),
@@ -164,20 +184,22 @@ func NewKV() *KV {
 				if !ok {
 					break
 				}
-
-				ds := storage.GetStorage("disk", storage.Options{
-					Args: map[string]interface{}{
-						bd.SegmentNameOpt:       job.segment,
-						storage.SegmentOpenMode: storage.SegmentOpenModeWR,
-					},
-				})
-				defer ds.Close()
 				defer job.s.Close()
 
-				job.s.Scan(func(k, v string) bool {
-					log.Printf("Scan(%s, %s)\n", k, v)
-					return ds.Put(k, v) == nil
-				})
+				{
+					ds := storage.GetStorage("disk", storage.Options{
+						Args: map[string]interface{}{
+							bd.SegmentNameOpt:       job.segment,
+							storage.SegmentOpenMode: storage.SegmentOpenModeWR,
+						},
+					})
+					defer ds.Close()
+
+					job.s.Scan(func(k, v string) bool {
+						log.Printf("Scan(%s, %s)\n", k, v)
+						return ds.Put(k, v) == nil
+					})
+				}
 
 				kv.wg.Done()
 			}
