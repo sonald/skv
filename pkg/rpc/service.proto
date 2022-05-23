@@ -1,0 +1,32 @@
+syntax = "proto3";
+package rpc;
+
+option go_package = "github.com/sonald/skv/rpc";
+
+service SKV {
+  rpc Get(GetRequest) returns (GetReply) {}
+  rpc Put(KeyValuePair) returns (PutReply) {}
+  rpc Scan(ScanOption) returns (stream KeyValuePair) {}
+}
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetReply {
+  string value = 1;
+}
+
+message PutReply {
+  int32 error = 1;
+}
+
+message ScanOption {
+  int32 limits = 1;
+  string prefix = 2;
+}
+
+message KeyValuePair {
+  string key = 1;
+  string value = 2;
+}

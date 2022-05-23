@@ -3,14 +3,29 @@ package main
 import (
 	"fmt"
 	kv "github.com/sonald/skv/pkg/kv"
+	"github.com/sonald/skv/pkg/rpc"
+	"google.golang.org/grpc"
+	"log"
 	"math/rand"
+	"net"
 )
 
-// TODO
-// storage: LSM-tree
-//  0. encoding key and value (metadata (created_at, version))
-// grpc interface
 func main() {
+	listener, err := net.Listen("tcp", "localhost:50062")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	var opts []grpc.ServerOption
+
+	s := grpc.NewServer(opts...)
+	rpc.RegisterSKVServer(s, NewSKVServer())
+	if err := s.Serve(listener); err != nil {
+		log.Printf("err: %s\n", err.Error())
+	}
+}
+
+func randomTest() {
 	db := kv.NewKV()
 	defer db.Close()
 	r := rand.New(rand.NewSource(0xdeadbeef))
