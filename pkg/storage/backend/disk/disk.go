@@ -21,7 +21,7 @@ func init() {
 type DiskStorage struct {
 	segment string
 	w       io.WriteCloser
-	r       io.ReadCloser
+	r       io.ReadSeekCloser
 }
 
 const (
@@ -87,6 +87,13 @@ func NewDiskStorage(options storage.Options) storage.Storage {
 	case storage.SegmentOpenModeWR:
 		log.Printf("create disk storage %s\n", ds.segment)
 		ds.w, err = os.OpenFile(ds.segment, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+
+	case storage.SegmentOpenModeRW:
+		log.Printf("create disk storage rw %s\n", ds.segment)
+		ds.w, err = os.OpenFile(ds.segment, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+		if err == nil {
+			ds.r, err = os.Open(ds.segment)
+		}
 	}
 
 	if err != nil {
@@ -119,7 +126,7 @@ func (ds *DiskStorage) Put(key, value string) error {
 
 	var seq = []string{key, value}
 	for _, payload := range seq {
-		log.Println("marshal " + payload)
+		//log.Println("marshal " + payload)
 		data, err := strToBytes(payload)
 		if err != nil {
 			return err
@@ -166,6 +173,10 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 	var err error
 	var val string
 
+	_, err = ds.r.Seek(0, io.SeekStart)
+	if err != nil {
+		return "", err
+	}
 	br := bufio.NewReader(ds.r)
 	for {
 		keyRead, err := readSizedValue(br)
@@ -173,7 +184,7 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 			break
 		}
 
-		log.Printf("read key: [%s]\n", keyRead)
+		//log.Printf("read key: [%s]\n", keyRead)
 		if keyRead == key {
 			// get value
 			val, err = readSizedValue(br)

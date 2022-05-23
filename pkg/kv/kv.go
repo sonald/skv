@@ -82,16 +82,10 @@ func (kv *KV) Del(key string) error {
 	return kv.memtable.Del(key)
 }
 
-//TODO: not good
+//FIXME: not good
 func (kv *KV) Scan(f func(k string, v string) bool) {
 	ms := storage.GetStorage("mem", storage.Options{})
 	defer ms.Close()
-
-	if kv.memtable != nil {
-		kv.memtable.Scan(func(k, v string) bool {
-			return ms.Put(k, v) == nil
-		})
-	}
 
 	for i := 0; i < kv.segmentSeq; i++ {
 		ds := storage.GetStorage("disk", storage.Options{
@@ -104,6 +98,12 @@ func (kv *KV) Scan(f func(k string, v string) bool) {
 		defer ds.Close()
 
 		ds.Scan(func(k, v string) bool {
+			return ms.Put(k, v) == nil
+		})
+	}
+
+	if kv.memtable != nil {
+		kv.memtable.Scan(func(k, v string) bool {
 			return ms.Put(k, v) == nil
 		})
 	}

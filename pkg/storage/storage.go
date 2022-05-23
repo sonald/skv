@@ -24,6 +24,7 @@ const (
 const (
 	SegmentOpenModeRO = iota
 	SegmentOpenModeWR
+	SegmentOpenModeRW
 )
 
 var storages = make(map[string]func(Options) Storage)
