@@ -131,7 +131,7 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 			break
 		}
 
-		log.Printf("read key: [%s]\n", keyRead)
+		//log.Printf("read key: [%s]\n", keyRead)
 		if keyRead == key {
 			return readSizedValue(br)
 		} else {

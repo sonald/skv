@@ -24,12 +24,25 @@ func TestKV_Get(t *testing.T) {
 
 	r := rand.New(rand.NewSource(0xdeadbeef))
 
-	db.Put("key99", "value99")
+	key99val := fmt.Sprintf("value%4d", r.Intn(1000))
+	db.Put("key99", key99val)
 
-	for i := 0; i < 100; i++ {
-		key := fmt.Sprintf("key%02d", r.Intn(40))
-		db.Put(key, fmt.Sprintf("value%d", r.Int31()))
-	}
+	t.Run("batchput", func(t *testing.T) {
+		for i := 0; i < 30; i++ {
+			key := fmt.Sprintf("key%02d", r.Intn(40))
+			db.Put(key, fmt.Sprintf("value%d", r.Int31()))
+
+			if i == 12 {
+				if v, err := db.Get("key99"); err != nil {
+					t.Fatalf("get key99 failed: %s\n", err.Error())
+				} else {
+					if v != key99val {
+						t.Fatalf("get wrong value of key99\n")
+					}
+				}
+			}
+		}
+	})
 
 	t.Run("get", func(t *testing.T) {
 		err := db.Put("key1", "value1")
@@ -138,7 +151,7 @@ func TestKV_Get(t *testing.T) {
 			t.Errorf("get key failed: %s\n", err.Error())
 		}
 
-		if v != "value99" {
+		if v != key99val {
 			t.Errorf("get key99's value failed")
 		}
 	})

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/sonald/skv/pkg/kv"
+	"github.com/sonald/skv/internal/pkg/kv"
 	pb "github.com/sonald/skv/pkg/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

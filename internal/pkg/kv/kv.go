@@ -25,7 +25,9 @@ type dumpJob struct {
 
 type KV struct {
 	memtable storage.Storage
-	lock     sync.Mutex
+	// the memtable that is being written into sstable
+	outgoings []dumpJob
+	lock      sync.Mutex
 
 	// storage root path on file system
 	Root string
@@ -36,18 +38,38 @@ type KV struct {
 
 	segmentSeq int
 
-	jobs chan dumpJob
-	wg   sync.WaitGroup
+	closed bool
+	jobs   chan dumpJob
+	wg     sync.WaitGroup
 }
 
 func (kv *KV) buildSegmentName(seq int) string {
 	return fmt.Sprintf("%s/segment%08d", kv.Root, seq)
 }
 
-func (kv *KV) writeSSTable(s storage.Storage) {
+//FIXME: when writing sstable, Get operation should find data from old memtable
+func (kv *KV) writeSSTable(j dumpJob) {
+	if kv.closed {
+		panic("kv closed")
+	}
+
 	kv.wg.Add(1)
-	kv.jobs <- dumpJob{s, kv.buildSegmentName(kv.segmentSeq)}
+	kv.jobs <- j
+}
+
+func (kv *KV) newMemtable() dumpJob {
+	kv.lock.Lock()
+	defer kv.lock.Unlock()
+
+	// dump to sstable and clear
+	old := kv.memtable
+	job := dumpJob{old, kv.buildSegmentName(kv.segmentSeq)}
+
 	kv.segmentSeq++
+	kv.outgoings = append(kv.outgoings, job)
+	kv.memtable = storage.GetStorage("mem", storage.Options{})
+
+	return job
 }
 
 func (kv *KV) Put(key string, value string) error {
@@ -60,22 +82,38 @@ func (kv *KV) Put(key string, value string) error {
 	}
 
 	if dump {
-		kv.lock.Lock()
-		defer kv.lock.Unlock()
+		old := kv.newMemtable()
+		kv.writeSSTable(old)
 
-		// dump to sstable and clear
-		mt := kv.memtable
-		kv.memtable = storage.GetStorage("mem", storage.Options{})
-		kv.writeSSTable(mt)
 	}
 
+	//log.Printf("Put(%s, %s)\n", key, value)
 	return kv.memtable.Put(key, value)
 }
 
+func (kv *KV) fastGet(key string) (string, error) {
+	kv.lock.Lock()
+	defer kv.lock.Unlock()
+
+	if val, err := kv.memtable.Get(key); err == nil {
+		return val, err
+	}
+
+	if kv.outgoings != nil {
+		for i := len(kv.outgoings) - 1; i >= 0; i++ {
+			if val, err := kv.outgoings[i].s.Get(key); err == nil {
+				return val, err
+			}
+		}
+	}
+
+	return "", storage.ErrNotFound
+}
+
 //TODO: use bloom filter
+//TODO: conccurent read?
 func (kv *KV) Get(key string) (string, error) {
-	val, err := kv.memtable.Get(key)
-	if err == nil {
+	if val, err := kv.fastGet(key); err == nil {
 		return val, err
 	}
 
@@ -90,8 +128,7 @@ func (kv *KV) Get(key string) (string, error) {
 		defer ds.Close()
 		log.Printf("Get: fallback to %s\n", kv.buildSegmentName(i))
 
-		val, err = ds.Get(key)
-		if err == nil {
+		if val, err := ds.Get(key); err == nil {
 			return val, err
 		}
 	}
@@ -132,7 +169,7 @@ func (kv *KV) Scan(f func(k string, v string) bool) {
 	ms.Scan(f)
 }
 
-func findSegmentSeq(root string) int {
+func nextUsableSequence(root string) int {
 	var maxSeq = 0
 	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if !d.Type().IsRegular() {
@@ -155,7 +192,7 @@ func findSegmentSeq(root string) int {
 	})
 
 	log.Printf("maxSeq = %d\n", maxSeq)
-	// overflow?
+
 	return maxSeq + 1
 }
 
@@ -170,7 +207,7 @@ func NewKV() *KV {
 		jobs:               make(chan dumpJob),
 	}
 
-	kv.segmentSeq = findSegmentSeq(kv.Root)
+	kv.segmentSeq = nextUsableSequence(kv.Root)
 
 	var err error
 	err = os.MkdirAll(kv.Root, 0755)
@@ -185,8 +222,8 @@ func NewKV() *KV {
 				if !ok {
 					break
 				}
-				defer job.s.Close()
 
+				log.Printf("process job for %s\n", job.segment)
 				{
 					ds := storage.GetStorage("disk", storage.Options{
 						Args: map[string]interface{}{
@@ -194,12 +231,25 @@ func NewKV() *KV {
 							storage.SegmentOpenMode: storage.SegmentOpenModeWR,
 						},
 					})
-					defer ds.Close()
 
 					job.s.Scan(func(k, v string) bool {
-						log.Printf("Scan(%s, %s)\n", k, v)
+						//log.Printf("Job: ScanPut (%s, %s)\n", k, v)
+						// for testing only
+						//time.Sleep(time.Millisecond * 200)
 						return ds.Put(k, v) == nil
 					})
+
+					ds.Close()
+					job.s.Close()
+				}
+
+				{
+					kv.lock.Lock()
+					if kv.outgoings[0].s != job.s || kv.outgoings[0].segment != job.segment {
+						log.Fatalf("mismatch job data\n")
+					}
+					kv.outgoings = kv.outgoings[1:]
+					kv.lock.Unlock()
 				}
 
 				kv.wg.Done()
@@ -214,12 +264,15 @@ func NewKV() *KV {
 
 func (kv *KV) Close() {
 	if kv.memtable != nil {
-		kv.writeSSTable(kv.memtable)
+		old := kv.newMemtable()
+		kv.writeSSTable(old)
 		kv.memtable = nil
 	}
 
 	kv.wg.Wait()
 	close(kv.jobs)
+	kv.jobs = nil
+	kv.closed = true
 }
 
 func init() {
