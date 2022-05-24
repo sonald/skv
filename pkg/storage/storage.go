@@ -37,10 +37,6 @@ const (
 
 var storages = make(map[string]func(Options) Storage)
 
-func init() {
-
-}
-
 func RegisterBackend(name string, impl func(Options) Storage) {
 	storages[name] = impl
 }

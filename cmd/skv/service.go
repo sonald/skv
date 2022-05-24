@@ -13,7 +13,7 @@ import (
 
 type SKVServerImpl struct {
 	pb.UnimplementedSKVServer
-	db *kv.KV
+	db kv.KV
 }
 
 func (skv *SKVServerImpl) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetReply, error) {

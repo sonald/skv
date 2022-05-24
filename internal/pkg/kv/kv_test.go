@@ -2,6 +2,7 @@ package kv
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"testing"
 )
@@ -155,4 +156,35 @@ func TestKV_Get(t *testing.T) {
 			t.Errorf("get key99's value failed")
 		}
 	})
+}
+
+func TestKV_BloomFilter(t *testing.T) {
+
+	t.Run("batchput", func(t *testing.T) {
+		db := NewKV()
+		defer db.Close()
+
+		for i := 0; i < 40; i++ {
+			key := fmt.Sprintf("key%02d", i)
+			db.Put(key, fmt.Sprintf("value%d", i))
+		}
+	})
+
+	t.Run("batchget", func(t *testing.T) {
+		db := NewKV()
+		defer db.Close()
+
+		for i := 0; i < 40; i++ {
+			key := fmt.Sprintf("key%02d", i)
+			v, err := db.Get(key)
+			if err != nil {
+				log.Fatalf("get(%s) failed\n", key)
+			}
+
+			if v != fmt.Sprintf("value%d", i) {
+				log.Fatalf("get(%s) wrong value\n", key)
+			}
+		}
+	})
+
 }
