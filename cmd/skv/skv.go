@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"github.com/sonald/skv/pkg/rpc"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"log"
 	"net"
 	"os"
+	"strings"
 )
 
 var ()
@@ -20,8 +23,8 @@ var rootCmd = &cobra.Command{
 `,
 	Example: "skv ",
 	Run: func(cmd *cobra.Command, args []string) {
-		host, _ := cmd.Flags().GetString("host")
-		port, _ := cmd.Flags().GetString("port")
+		host := viper.Get("skv.host")
+		port := viper.GetString("skv.port")
 
 		fmt.Printf("listening on %s\n", fmt.Sprintf("%s:%s", host, port))
 		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", host, port))
@@ -50,15 +53,54 @@ var statusCmd = &cobra.Command{
 
 		if b {
 			fmt.Println("status is really ok")
+			viper.Debug()
 		} else {
 			fmt.Println("status ok")
 		}
 	},
 }
 
+var (
+	cfg         string
+	storageRoot string
+	coreSets    = flag.NewFlagSet("core", flag.ContinueOnError)
+)
+
+func initConfig() {
+	log.Printf("initConfig")
+
+	if cfg != "" {
+		viper.SetConfigFile(cfg)
+		viper.SetConfigType("yaml")
+	} else {
+		viper.AddConfigPath(".")
+		viper.AddConfigPath(storageRoot)
+		viper.SetConfigName("skv")
+	}
+
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("SKV")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	viper.BindEnv("skv.host", "host")
+	viper.BindEnv("skv.port", "port")
+	viper.BindPFlags(coreSets)
+	viper.SetDefault("skv.port", "9527")
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("read config failed: %s\n", err)
+	}
+
+	fmt.Printf("load config %s\n", viper.ConfigFileUsed())
+}
+
 func init() {
-	rootCmd.PersistentFlags().StringP("port", "p", "50062", "skv coordinator's port")
-	rootCmd.PersistentFlags().StringP("host", "H", "localhost", "listen host")
+	cobra.OnInitialize(initConfig)
+
+	coreSets.StringP("skv.port", "p", "", "skv coordinator's port")
+	coreSets.StringP("skv.host", "H", "localhost", "listen host")
+	coreSets.StringP("skv.root", "r", "/tmp/skv", "root path for storage")
+	coreSets.StringVarP(&cfg, "skv.config", "c", "", "config path")
+	rootCmd.Flags().SortFlags = true
+	rootCmd.Flags().AddFlagSet(coreSets)
 
 	rootCmd.AddCommand(statusCmd)
 

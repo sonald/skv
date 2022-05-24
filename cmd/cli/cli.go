@@ -93,7 +93,7 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringP("port", "p", "50062", "skv coordinator's port")
+	rootCmd.PersistentFlags().StringP("port", "p", "9527", "skv coordinator's port")
 	rootCmd.PersistentFlags().StringP("host", "H", "localhost", "listen host")
 
 	rootCmd.AddCommand(putCmd, getCmd, listCmd)
