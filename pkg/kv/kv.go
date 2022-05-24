@@ -72,6 +72,7 @@ func (kv *KV) Put(key string, value string) error {
 	return kv.memtable.Put(key, value)
 }
 
+//TODO: use bloom filter
 func (kv *KV) Get(key string) (string, error) {
 	val, err := kv.memtable.Get(key)
 	if err == nil {

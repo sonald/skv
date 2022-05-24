@@ -2,45 +2,73 @@ package main
 
 import (
 	"fmt"
-	kv "github.com/sonald/skv/pkg/kv"
 	"github.com/sonald/skv/pkg/rpc"
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"log"
-	"math/rand"
 	"net"
+	"os"
 )
 
-func main() {
-	listener, err := net.Listen("tcp", "localhost:50062")
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
+var ()
 
-	var opts []grpc.ServerOption
+var rootCmd = &cobra.Command{
+	Use:   "skv",
+	Short: "simple kv store",
+	Long: `a simple kv store with LSM-tree style storage
+ and raft-based cluster support
+`,
+	Example: "skv ",
+	Run: func(cmd *cobra.Command, args []string) {
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
 
-	s := grpc.NewServer(opts...)
-	rpc.RegisterSKVServer(s, NewSKVServer())
-	if err := s.Serve(listener); err != nil {
-		log.Printf("err: %s\n", err.Error())
-	}
+		fmt.Printf("listening on %s\n", fmt.Sprintf("%s:%s", host, port))
+		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", host, port))
+		if err != nil {
+			log.Fatalln(err.Error())
+		}
+
+		var opts []grpc.ServerOption
+		s := grpc.NewServer(opts...)
+		rpc.RegisterSKVServer(s, NewSKVServer())
+		if err := s.Serve(listener); err != nil {
+			log.Printf("err: %s\n", err.Error())
+		}
+	},
 }
 
-func randomTest() {
-	db := kv.NewKV()
-	defer db.Close()
-	r := rand.New(rand.NewSource(0xdeadbeef))
+var statusCmd = &cobra.Command{
+	Use:     "status",
+	Short:   "report status",
+	Example: "skv status",
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := cmd.Flags().GetBool("verbose")
+		if err != nil {
+			return
+		}
 
-	for i := 0; i < 100; i++ {
-		key := fmt.Sprintf("key%02d", r.Intn(40))
-		db.Put(key, fmt.Sprintf("value%d", r.Int31()))
+		if b {
+			fmt.Println("status is really ok")
+		} else {
+			fmt.Println("status ok")
+		}
+	},
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringP("port", "p", "50062", "skv coordinator's port")
+	rootCmd.PersistentFlags().StringP("host", "H", "localhost", "listen host")
+
+	rootCmd.AddCommand(statusCmd)
+
+	statusCmd.Flags().BoolP("verbose", "V", false, "report details")
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 
-	fmt.Println("scanning....")
-	var seq int
-	db.Scan(func(k, v string) bool {
-		fmt.Printf("[%03d] %s - %s\n", seq, k, v)
-		seq++
-
-		return true
-	})
 }

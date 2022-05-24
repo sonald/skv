@@ -5,7 +5,7 @@ simple kv store
 - [ ] add index
 - [ ] metadata design and structured value
 - [ ] key namespace
-- [ ] rpc
+- [x] rpc
 - [ ] command interface
 - [ ] status report frontend
 - [ ] compact and merge job

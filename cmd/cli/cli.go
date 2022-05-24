@@ -5,87 +5,98 @@ import (
 	"fmt"
 	"github.com/chzyer/readline"
 	"github.com/sonald/skv/pkg/rpc"
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"io"
 	"log"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
 )
 
-func put(cli rpc.SKVClient, key, value string) {
-	var ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	p := &rpc.KeyValuePair{
-		Key:   key,
-		Value: value,
-	}
-	//log.Printf("put\n")
-	reply, err := cli.Put(ctx, p)
-	if err != nil {
-		log.Printf("reply: %s\n", err.Error())
-		return
-	}
-	reply.GetError()
-	//log.Printf("reply: %d\n", reply.GetError())
+var rootCmd = &cobra.Command{
+	Use:   "skvcli",
+	Short: "simple kv store",
+	Long: `a simple kv store with LSM-tree style storage
+ and raft-based cluster support
+`,
+	Example: "skvcli put/get",
+	Run: func(cmd *cobra.Command, args []string) {
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
+
+		cli, conn := startClient(host, port)
+		defer conn.Close()
+		interactive(cli)
+	},
 }
 
-func get(cli rpc.SKVClient, key string) string {
-	var ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+var putCmd = &cobra.Command{
+	Use:   "put",
+	Short: "put value into skv",
 
-	req := &rpc.GetRequest{Key: key}
-	reply, err := cli.Get(ctx, req)
-	if err != nil {
-		log.Printf("reply: %s\n", err.Error())
-		return ""
-	}
+	Run: func(cmd *cobra.Command, args []string) {
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
 
-	return reply.Value
-	//log.Printf("reply: %s\n", reply.Value)
+		log.Println(args)
+		if len(args) <= 1 {
+			fmt.Println("need arguments [key, value]")
+			return
+		}
+		cli, conn := startClient(host, port)
+		defer conn.Close()
+
+		put(cli, args[0], strings.Join(args[1:], " "))
+	},
 }
 
-func scan(cli rpc.SKVClient, f func(k, v string) bool) {
-	var ctx, cancel = context.WithTimeout(context.Background(), time.Hour)
-	defer cancel()
+var getCmd = &cobra.Command{
+	Use:   "get",
+	Short: "get value from skv",
 
-	in := &rpc.ScanOption{
-		Limits: 0,
-		Prefix: "",
-	}
-	stream, err := cli.Scan(ctx, in, grpc.EmptyCallOption{})
-	if err != nil {
-		log.Printf("scan: %s\n", err.Error())
-	}
+	Run: func(cmd *cobra.Command, args []string) {
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
+		cli, conn := startClient(host, port)
+		defer conn.Close()
 
-	for {
-		p, err := stream.Recv()
-		if err == io.EOF {
-			break
+		if len(args) == 0 {
+			return
 		}
+		fmt.Println(get(cli, args[0]))
 
-		if err != nil {
-			log.Printf("scan: %s\n", err.Error())
-		}
-
-		if !f(p.Key, p.Value) {
-			break
-		}
-	}
-
+	},
 }
 
-func randomTest(cli rpc.SKVClient) {
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "list all key-value pairs from skv",
 
-	r := rand.New(rand.NewSource(0xdeadbeef))
+	Run: func(cmd *cobra.Command, args []string) {
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
 
-	for i := 0; i < 100; i++ {
-		key := fmt.Sprintf("key%02d", r.Intn(40))
-		put(cli, key, fmt.Sprintf("value%d", r.Int31()))
-	}
+		cli, conn := startClient(host, port)
+		defer conn.Close()
 
+		fmt.Println("scanning....")
+		var seq int
+		scan(cli, func(k, v string) bool {
+			fmt.Printf("[%08d] %s - [%s]\n", seq, k, v)
+			seq++
+
+			return true
+		})
+	},
+}
+
+func init() {
+	rootCmd.PersistentFlags().StringP("port", "p", "50062", "skv coordinator's port")
+	rootCmd.PersistentFlags().StringP("host", "H", "localhost", "listen host")
+
+	rootCmd.AddCommand(putCmd, getCmd, listCmd)
 }
 
 var completer = readline.NewPrefixCompleter(
@@ -98,24 +109,29 @@ var completer = readline.NewPrefixCompleter(
 )
 
 func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func startClient(host, port string) (rpc.SKVClient, *grpc.ClientConn) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	opts = append(opts, grpc.WithBlock())
 	var ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "localhost:50062", opts...)
-
+	server := fmt.Sprintf("%s:%s", host, port)
+	conn, err := grpc.DialContext(ctx, server, opts...)
 	if err != nil {
 		log.Fatalf("dial fail: %s\n", err.Error())
 	}
-	defer conn.Close()
 
-	cli := rpc.NewSKVClient(conn)
-	if len(os.Args) == 1 {
-		// enter interactive shell
-	}
+	return rpc.NewSKVClient(conn), conn
+}
 
+func interactive(cli rpc.SKVClient) {
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          "skv> ",
 		HistoryFile:     "/tmp/skv_client_history",
