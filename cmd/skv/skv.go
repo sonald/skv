@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/sonald/skv/internal/pkg/kv"
 	"github.com/sonald/skv/pkg/rpc"
+	"github.com/sonald/skv/pkg/storage"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -11,9 +14,19 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
-var ()
+const (
+	kSkvDebug          = "skv.debug"
+	kSkvHost           = "skv.host"
+	kSkvPort           = "skv.port"
+	kSkvRoot           = "skv.root"
+	kSkvDumpPolicy     = "skv.dumpPolicy"
+	kSkvCountThreshold = "skv.countThreshold"
+	kSkvSizeThreshold  = "skv.sizeThreshold"
+	kSkvConfig         = "skv.config"
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "skv",
@@ -23,18 +36,32 @@ var rootCmd = &cobra.Command{
 `,
 	Example: "skv ",
 	Run: func(cmd *cobra.Command, args []string) {
-		host := viper.Get("skv.host")
-		port := viper.GetString("skv.port")
+		host := viper.GetString(kSkvHost)
+		port := viper.GetString(kSkvPort)
 
 		fmt.Printf("listening on %s\n", fmt.Sprintf("%s:%s", host, port))
-		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", host, port))
+		//listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", host, port))
+		var ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)
+		defer cancel()
+
+		lc := net.ListenConfig{}
+		listener, err := lc.Listen(ctx, "tcp", fmt.Sprintf("%s:%s", host, port))
 		if err != nil {
 			log.Fatalln(err.Error())
 		}
 
 		var opts []grpc.ServerOption
 		s := grpc.NewServer(opts...)
-		rpc.RegisterSKVServer(s, NewSKVServer())
+
+		var skopts = []kv.KVOption{
+			kv.WithDebug(viper.GetBool(kSkvDebug)),
+			kv.WithRoot(viper.GetString(kSkvRoot)),
+			kv.WithDumpPolicy(viper.GetInt(kSkvDumpPolicy)),
+			kv.WithDumpCountThreshold(viper.GetInt(kSkvCountThreshold)),
+			kv.WithDumpSizeThreshold(viper.GetInt(kSkvSizeThreshold)),
+		}
+
+		rpc.RegisterSKVServer(s, NewSKVServer(skopts...))
 		if err := s.Serve(listener); err != nil {
 			log.Printf("err: %s\n", err.Error())
 		}
@@ -46,16 +73,15 @@ var statusCmd = &cobra.Command{
 	Short:   "report status",
 	Example: "skv status",
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := cmd.Flags().GetBool("verbose")
+		details, err := cmd.Flags().GetBool("verbose")
 		if err != nil {
 			return
 		}
 
-		if b {
-			fmt.Println("status is really ok")
+		fmt.Println("status ok")
+		if details {
+			//TODO: get statistics
 			viper.Debug()
-		} else {
-			fmt.Println("status ok")
 		}
 	},
 }
@@ -67,8 +93,6 @@ var (
 )
 
 func initConfig() {
-	log.Printf("initConfig")
-
 	if cfg != "" {
 		viper.SetConfigFile(cfg)
 		viper.SetConfigType("yaml")
@@ -81,10 +105,10 @@ func initConfig() {
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("SKV")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-	viper.BindEnv("skv.host", "host")
-	viper.BindEnv("skv.port", "port")
+	viper.BindEnv(kSkvHost, "host")
+	viper.BindEnv(kSkvPort, "port")
 	viper.BindPFlags(coreSets)
-	viper.SetDefault("skv.port", "9527")
+	viper.SetDefault(kSkvPort, "9527")
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("read config failed: %s\n", err)
 	}
@@ -95,10 +119,15 @@ func initConfig() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	coreSets.StringP("skv.port", "p", "", "skv coordinator's port")
-	coreSets.StringP("skv.host", "H", "localhost", "listen host")
-	coreSets.StringP("skv.root", "r", "/tmp/skv", "root path for storage")
-	coreSets.StringVarP(&cfg, "skv.config", "c", "", "config path")
+	coreSets.BoolP(kSkvDebug, "D", false, "turn on debug")
+	coreSets.StringP(kSkvPort, "p", "", "skv coordinator's port")
+	coreSets.StringP(kSkvHost, "H", "localhost", "listen host")
+	coreSets.StringP(kSkvRoot, "r", "/tmp/skv", "root path for storage")
+	coreSets.StringVarP(&cfg, kSkvConfig, "c", "", "config path")
+	coreSets.Int(kSkvDumpPolicy, kv.DumpByCount, "memtable dump to sstable policy")
+	coreSets.IntP(kSkvSizeThreshold, "S", storage.Megabyte, "memtable size threshold")
+	coreSets.IntP(kSkvCountThreshold, "C", 1024, "memtable key count threshold")
+
 	rootCmd.Flags().SortFlags = true
 	rootCmd.Flags().AddFlagSet(coreSets)
 

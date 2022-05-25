@@ -45,9 +45,9 @@ func (skv *SKVServerImpl) Scan(opts *pb.ScanOption, stream pb.SKV_ScanServer) er
 	return nil
 }
 
-func NewSKVServer() pb.SKVServer {
+func NewSKVServer(opts ...kv.KVOption) pb.SKVServer {
 	return &SKVServerImpl{
-		db: kv.NewKV(),
+		db: kv.NewKV(opts...),
 	}
 }
 

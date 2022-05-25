@@ -86,7 +86,6 @@ func (kv *KVImpl) Put(key string, value string) error {
 
 	}
 
-	//log.Printf("Put(%s, %s)\n", key, value)
 	return kv.memtable.Put(key, value)
 }
 
@@ -109,7 +108,6 @@ func (kv *KVImpl) fastGet(key string) (string, error) {
 	return "", storage.ErrNotFound
 }
 
-//TODO: use bloom filter
 //TODO: conccurent read?
 func (kv *KVImpl) Get(key string) (string, error) {
 	if val, err := kv.fastGet(key); err == nil {
@@ -124,12 +122,15 @@ func (kv *KVImpl) Get(key string) (string, error) {
 			},
 		})
 
-		defer ds.Close()
-		log.Printf("Get: fallback to %s\n", kv.buildSegmentName(i))
+		if kv.debug {
+			log.Printf("Get: fallback to %s\n", kv.buildSegmentName(i))
+		}
 
 		if val, err := ds.Get(key); err == nil {
+			ds.Close()
 			return val, err
 		}
+		ds.Close()
 	}
 
 	return "", storage.ErrNotFound
@@ -190,7 +191,7 @@ func nextUsableSequence(root string) int {
 		return nil
 	})
 
-	log.Printf("maxSeq = %d\n", maxSeq)
+	log.Printf("nextUsableSequence %d\n", maxSeq+1)
 
 	return maxSeq + 1
 }
@@ -215,9 +216,6 @@ func (kv *KVImpl) startJobManager() {
 					})
 
 					job.s.Scan(func(k, v string) bool {
-						//log.Printf("Job: ScanPut (%s, %s)\n", k, v)
-						// for testing only
-						//time.Sleep(time.Millisecond * 200)
 						return ds.Put(k, v) == nil
 					})
 
@@ -242,18 +240,23 @@ func (kv *KVImpl) startJobManager() {
 	}()
 }
 
-//TODO: inject params from cfg
 func NewKV(opts ...KVOption) KV {
 	kv := &KVImpl{
 		memtable:           storage.GetStorage("mem", storage.Options{}),
-		dumpCountThreshold: 10,
-		dumpSizeThreshold:  storage.Megabyte,
+		dumpCountThreshold: 1024,
+		dumpSizeThreshold:  storage.Megabyte * 10,
 		dumpPolicy:         DumpByCount,
 		root:               "/tmp/skv",
 		jobs:               make(chan dumpJob),
 	}
 
-	kv.segmentSeq = nextUsableSequence(kv.root)
+	for _, opt := range opts {
+		opt(kv)
+	}
+
+	if kv.debug {
+		log.Printf("%+v\n", kv)
+	}
 
 	var err error
 	err = os.MkdirAll(kv.root, 0755)
@@ -261,6 +264,7 @@ func NewKV(opts ...KVOption) KV {
 		log.Fatal(err)
 	}
 
+	kv.segmentSeq = nextUsableSequence(kv.root)
 	kv.startJobManager()
 
 	//TODO: add option
