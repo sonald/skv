@@ -6,11 +6,15 @@ import (
 	"github.com/sonald/skv/pkg/storage"
 	"io"
 	"log"
-	"os"
 	"strconv"
 )
 
-type Index struct {
+type Index interface {
+	// return file offset from key
+	GetOffset(key string) (int64, error)
+}
+
+type DiskStorageIndex struct {
 	data *skiplist.SkipList
 
 	// path of index file
@@ -19,16 +23,39 @@ type Index struct {
 	segment string
 }
 
-func (idx *Index) BuildIndex() {
+func (idx *DiskStorageIndex) GetOffset(key string) (int64, error) {
+	if elem := idx.data.Get(key); elem == nil {
+		return 0, fmt.Errorf("key does not exist")
+	} else {
+		return elem.Value.(int64), nil
+	}
+}
+
+func (idx *DiskStorageIndex) Save() {
 	ds := storage.GetStorage("disk", storage.Options{
 		Args: map[string]interface{}{
-			SegmentNameOpt:          idx.segment,
-			storage.SegmentOpenMode: storage.SegmentOpenModeRO,
+			SegmentNameOpt:          idx.path,
+			storage.SegmentOpenMode: storage.SegmentOpenModeWR,
 		},
 	})
 	defer ds.Close()
 
-	rd := ds.(*DiskStorage).r
+	log.Printf("index.save %s\n", idx.path)
+	elem := idx.data.Front()
+	for elem != nil {
+		val := strconv.FormatInt(elem.Value.(int64), 10)
+		if err := ds.Put(elem.Key().(string), val); err != nil {
+			log.Printf("put: %s\n", err.Error())
+			break
+		}
+
+		elem = elem.Next()
+	}
+}
+
+func (idx *DiskStorageIndex) BuildIndex(rd io.ReadSeeker) {
+	rd.Seek(0, io.SeekStart)
+
 	for {
 		pos, _ := rd.Seek(0, io.SeekCurrent)
 		key, err := readSizedValue(rd)
@@ -42,12 +69,14 @@ func (idx *Index) BuildIndex() {
 		}
 
 		idx.data.Set(key, pos)
+		//log.Printf("DiskStorageIndex(%s, %v)\n", key, pos)
 	}
 }
 
-func (idx *Index) Load() {
-	if idx.data.Len() > 0 {
-		return
+func LoadIndex(segment string) Index {
+	idx := &DiskStorageIndex{
+		data: skiplist.New(skiplist.String),
+		path: fmt.Sprintf("%s_index", segment),
 	}
 
 	ds := storage.GetStorage("disk", storage.Options{
@@ -67,54 +96,6 @@ func (idx *Index) Load() {
 		idx.data.Set(k, pos)
 		return true
 	})
-}
-
-func (idx *Index) Save() {
-	ds := storage.GetStorage("disk", storage.Options{
-		Args: map[string]interface{}{
-			SegmentNameOpt:          idx.path,
-			storage.SegmentOpenMode: storage.SegmentOpenModeWR,
-		},
-	})
-	defer ds.Close()
-
-	elem := idx.data.Front()
-	for elem != nil {
-		val := strconv.FormatInt(elem.Value.(int64), 10)
-		if err := ds.Put(elem.Key().(string), val); err != nil {
-			log.Printf("put: %s\n", err.Error())
-			break
-		}
-
-		elem = elem.Next()
-	}
-}
-
-func NewIndexFor(segment string) *Index {
-	idx := &Index{
-		data:    skiplist.New(skiplist.String),
-		path:    fmt.Sprintf("%s_index", segment),
-		segment: segment,
-	}
-
-	_, err := os.Stat(idx.path)
-	if err != nil {
-		fmt.Println(err)
-		idx.BuildIndex()
-		idx.Save()
-
-	} else {
-		//load
-		idx.Load()
-	}
 
 	return idx
-}
-
-func (idx *Index) Get(key string) (int64, error) {
-	if elem := idx.data.Get(key); elem == nil {
-		return 0, fmt.Errorf("key does not exist")
-	} else {
-		return elem.Value.(int64), nil
-	}
 }

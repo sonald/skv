@@ -324,10 +324,10 @@ var file_pkg_rpc_service_proto_goTypes = []interface{}{
 	(*KeyValuePair)(nil), // 4: rpc.KeyValuePair
 }
 var file_pkg_rpc_service_proto_depIdxs = []int32{
-	0, // 0: rpc.SKV.Get:input_type -> rpc.GetRequest
+	0, // 0: rpc.SKV.GetOffset:input_type -> rpc.GetRequest
 	4, // 1: rpc.SKV.Put:input_type -> rpc.KeyValuePair
 	3, // 2: rpc.SKV.Scan:input_type -> rpc.ScanOption
-	1, // 3: rpc.SKV.Get:output_type -> rpc.GetReply
+	1, // 3: rpc.SKV.GetOffset:output_type -> rpc.GetReply
 	2, // 4: rpc.SKV.Put:output_type -> rpc.PutReply
 	4, // 5: rpc.SKV.Scan:output_type -> rpc.KeyValuePair
 	3, // [3:6] is the sub-list for method output_type

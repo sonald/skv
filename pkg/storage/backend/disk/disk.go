@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"github.com/huandu/skiplist"
 	"github.com/sonald/skv/internal/pkg/utils"
 	"github.com/sonald/skv/pkg/storage"
 	"github.com/sonald/skv/pkg/storage/backend/noop"
@@ -22,7 +24,9 @@ type DiskStorage struct {
 	segment string
 	w       io.WriteCloser
 	r       io.ReadSeekCloser
-	index   *Index
+	index   Index
+	// only used when opened read
+	filter Filter
 }
 
 const (
@@ -62,12 +66,22 @@ func NewDiskStorage(options storage.Options) storage.Storage {
 		return &noop.NoopStorage{}
 	}
 
+	//TODO: set by option
+	if ds.r != nil {
+		ds.filter = NewBloomFilter(ds)
+	}
+
 	return ds
 }
 
+func (ds *DiskStorage) IsIndexFile() bool {
+	return strings.HasSuffix(ds.segment, "_index")
+}
+
 func (ds *DiskStorage) LoadIndex() {
-	if ds.r != nil && ds.index == nil && !strings.HasSuffix(ds.segment, "_index") {
-		ds.index = NewIndexFor(ds.segment)
+	if ds.r != nil && ds.index == nil && !ds.IsIndexFile() {
+		//TODO: load index
+		ds.index = LoadIndex(ds.segment)
 	}
 }
 
@@ -88,6 +102,10 @@ func (ds *DiskStorage) Put(key, value string) error {
 	// TODO: better marshalling
 	// write metadata
 	// prefix namespace
+
+	if ds.filter != nil {
+		ds.filter.Set(key)
+	}
 
 	w := bufio.NewWriter(ds.w)
 
@@ -110,11 +128,17 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 	var val string
 	var offset int64 = 0
 
+	if ds.filter != nil {
+		if !ds.filter.Check(key) {
+			return "", storage.ErrNotFound
+		}
+	}
+
 	// Lazy loading
 	ds.LoadIndex()
 
 	if ds.index != nil {
-		if offset, err = ds.index.Get(key); err != nil {
+		if offset, err = ds.index.GetOffset(key); err != nil {
 			offset = 0
 		}
 		log.Printf("fast offset(%d) by index", offset)
@@ -147,7 +171,31 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 }
 
 func (ds *DiskStorage) Del(key string) error {
+	log.Fatalf("disk should never del a key")
 	return nil
+}
+
+func (ds *DiskStorage) writeIndex() {
+	if ds.IsIndexFile() {
+		return
+	}
+	r, err := os.Open(ds.segment)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	idx := &DiskStorageIndex{
+		data: skiplist.New(skiplist.String),
+		path: fmt.Sprintf("%s_index", ds.segment),
+	}
+
+	_, err = os.Stat(idx.path)
+	if err != nil {
+		fmt.Println(err)
+		idx.BuildIndex(r)
+		idx.Save()
+	}
 }
 
 func (ds *DiskStorage) Close() {
@@ -157,6 +205,7 @@ func (ds *DiskStorage) Close() {
 
 	if ds.w != nil {
 		ds.w.Close()
+		ds.writeIndex()
 	}
 
 }

@@ -267,8 +267,7 @@ func NewKV(opts ...KVOption) KV {
 	kv.segmentSeq = nextUsableSequence(kv.root)
 	kv.startJobManager()
 
-	//TODO: add option
-	return NewFilter(kv)
+	return kv
 }
 
 func (kv *KVImpl) Close() {
