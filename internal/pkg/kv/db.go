@@ -2,9 +2,9 @@ package kv
 
 import (
 	"fmt"
-	"github.com/sonald/skv/pkg/storage"
-	bd "github.com/sonald/skv/pkg/storage/backend/disk"
-	_ "github.com/sonald/skv/pkg/storage/backend/mem"
+	"github.com/sonald/skv/internal/pkg/storage"
+	bd "github.com/sonald/skv/internal/pkg/storage/backend/disk"
+	_ "github.com/sonald/skv/internal/pkg/storage/backend/mem"
 	"io/fs"
 	"log"
 	"os"
@@ -98,7 +98,7 @@ func (kv *KVImpl) fastGet(key string) (string, error) {
 	}
 
 	if kv.outgoings != nil {
-		for i := len(kv.outgoings) - 1; i >= 0; i++ {
+		for i := len(kv.outgoings) - 1; i >= 0; i-- {
 			if val, err := kv.outgoings[i].s.Get(key); err == nil {
 				return val, err
 			}

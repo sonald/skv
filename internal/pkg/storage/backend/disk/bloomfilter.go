@@ -2,7 +2,7 @@ package disk
 
 import (
 	"github.com/bits-and-blooms/bloom/v3"
-	"github.com/sonald/skv/pkg/storage"
+	"github.com/sonald/skv/internal/pkg/storage"
 	"log"
 )
 

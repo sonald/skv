@@ -3,7 +3,7 @@ package disk
 import (
 	"fmt"
 	"github.com/huandu/skiplist"
-	"github.com/sonald/skv/pkg/storage"
+	"github.com/sonald/skv/internal/pkg/storage"
 	"io"
 	"log"
 	"strconv"

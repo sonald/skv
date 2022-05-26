@@ -1,7 +1,7 @@
 package noop
 
 import (
-	"github.com/sonald/skv/pkg/storage"
+	"github.com/sonald/skv/internal/pkg/storage"
 )
 
 type NoopStorage struct {

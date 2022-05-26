@@ -8,7 +8,13 @@ import (
 )
 
 func TestKV_RandomPut(t *testing.T) {
-	db := NewKV()
+	var skopts = []KVOption{
+		WithRoot(t.TempDir()),
+		WithDumpPolicy(DumpByCount),
+		WithDumpCountThreshold(10),
+		WithDumpSizeThreshold(1000),
+	}
+	db := NewKV(skopts...)
 	defer db.Close()
 
 	r := rand.New(rand.NewSource(0xdeadbeef))
@@ -20,7 +26,13 @@ func TestKV_RandomPut(t *testing.T) {
 }
 
 func TestKV_Get(t *testing.T) {
-	db := NewKV()
+	var skopts = []KVOption{
+		WithRoot(t.TempDir()),
+		WithDumpPolicy(DumpByCount),
+		WithDumpCountThreshold(10),
+		WithDumpSizeThreshold(1000),
+	}
+	db := NewKV(skopts...)
 	defer db.Close()
 
 	r := rand.New(rand.NewSource(0xdeadbeef))
@@ -159,9 +171,17 @@ func TestKV_Get(t *testing.T) {
 }
 
 func TestKV_BloomFilter(t *testing.T) {
+	var root = t.TempDir()
 
 	t.Run("batchput", func(t *testing.T) {
-		db := NewKV()
+		var skopts = []KVOption{
+			WithRoot(root),
+			WithDumpPolicy(DumpByCount),
+			WithDumpCountThreshold(10),
+			WithDumpSizeThreshold(1000),
+		}
+		db := NewKV(skopts...)
+
 		defer db.Close()
 
 		for i := 0; i < 40; i++ {
@@ -171,7 +191,13 @@ func TestKV_BloomFilter(t *testing.T) {
 	})
 
 	t.Run("batchget", func(t *testing.T) {
-		db := NewKV()
+		var skopts = []KVOption{
+			WithRoot(root),
+			WithDumpPolicy(DumpByCount),
+			WithDumpCountThreshold(10),
+			WithDumpSizeThreshold(1000),
+		}
+		db := NewKV(skopts...)
 		defer db.Close()
 
 		for i := 0; i < 40; i++ {

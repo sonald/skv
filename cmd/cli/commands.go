@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/sonald/skv/pkg/rpc"
+	rpc "github.com/sonald/skv/internal/pkg/rpc"
 	"google.golang.org/grpc"
 	"io"
 	"log"
@@ -18,7 +18,7 @@ func put(cli rpc.SKVClient, key, value string) {
 		Key:   key,
 		Value: value,
 	}
-	//log.Printf("put\n")
+
 	reply, err := cli.Put(ctx, p)
 	if err != nil {
 		log.Printf("reply: %s\n", err.Error())

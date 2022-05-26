@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/chzyer/readline"
-	"github.com/sonald/skv/pkg/rpc"
+	"github.com/sonald/skv/internal/pkg/rpc"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
