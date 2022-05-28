@@ -5,6 +5,7 @@ option go_package = "github.com/sonald/skv/rpc";
 
 service SKV {
   rpc Get(GetRequest) returns (GetReply) {}
+  rpc Del(DelRequest) returns (DelReply) {}
   rpc Put(KeyValuePair) returns (PutReply) {}
   rpc Scan(ScanOption) returns (stream KeyValuePair) {}
 }
@@ -18,6 +19,14 @@ message GetReply {
 }
 
 message PutReply {
+  int32 error = 1;
+}
+
+message DelRequest {
+  string key = 1;
+}
+
+message DelReply {
   int32 error = 1;
 }
 

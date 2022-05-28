@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/sonald/skv/internal/pkg/kv"
 	"github.com/sonald/skv/internal/pkg/rpc"
+	"github.com/sonald/skv/internal/pkg/storage"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"log"
@@ -16,15 +17,26 @@ type SKVServerImpl struct {
 	db kv.KV
 }
 
+func (skv *SKVServerImpl) Del(ctx context.Context, req *rpc.DelRequest) (*rpc.DelReply, error) {
+	err := skv.db.Del(req.GetKey())
+	log.Printf("Del: err %v\n", err)
+	return &rpc.DelReply{Error: 0}, nil
+}
+
 func (skv *SKVServerImpl) Get(ctx context.Context, req *rpc.GetRequest) (*rpc.GetReply, error) {
 	val, err := skv.db.Get(req.GetKey())
+	if err == storage.ErrKeyDeleted {
+		return &rpc.GetReply{Value: nil}, nil
+	}
 	return &rpc.GetReply{Value: val}, err
 }
+
 func (skv *SKVServerImpl) Put(ctx context.Context, req *rpc.KeyValuePair) (*rpc.PutReply, error) {
 	log.Printf("Put(%s, %s)", req.Key, req.Value)
 	err := skv.db.Put(req.GetKey(), req.GetValue())
 	return &rpc.PutReply{Error: 0}, err
 }
+
 func (skv *SKVServerImpl) Scan(opts *rpc.ScanOption, stream rpc.SKV_ScanServer) error {
 	var err error
 	skv.db.Scan(func(k string, v []byte) bool {

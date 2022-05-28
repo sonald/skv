@@ -120,6 +120,15 @@ func TestMemStorage(t *testing.T) {
 		}
 	})
 
+	t.Run("directdel", func(t *testing.T) {
+		target := []byte("key_directdel")
+		ikey2 := storage.KeyFromUser(target, 1, storage.TagTombstone)
+		err := ms.Del(ikey2)
+		if err != nil {
+			t.Fatalf("del failed: %v", err)
+		}
+	})
+
 	t.Run("scan", func(t *testing.T) {
 		var seq uint64 = 0
 		for i := 0; i < 10; i++ {

@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SKVClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetReply, error)
+	Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelReply, error)
 	Put(ctx context.Context, in *KeyValuePair, opts ...grpc.CallOption) (*PutReply, error)
 	Scan(ctx context.Context, in *ScanOption, opts ...grpc.CallOption) (SKV_ScanClient, error)
 }
@@ -38,6 +39,15 @@ func NewSKVClient(cc grpc.ClientConnInterface) SKVClient {
 func (c *sKVClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetReply, error) {
 	out := new(GetReply)
 	err := c.cc.Invoke(ctx, "/rpc.SKV/Get", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sKVClient) Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelReply, error) {
+	out := new(DelReply)
+	err := c.cc.Invoke(ctx, "/rpc.SKV/Del", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +100,7 @@ func (x *sKVScanClient) Recv() (*KeyValuePair, error) {
 // for forward compatibility
 type SKVServer interface {
 	Get(context.Context, *GetRequest) (*GetReply, error)
+	Del(context.Context, *DelRequest) (*DelReply, error)
 	Put(context.Context, *KeyValuePair) (*PutReply, error)
 	Scan(*ScanOption, SKV_ScanServer) error
 	mustEmbedUnimplementedSKVServer()
@@ -101,6 +112,9 @@ type UnimplementedSKVServer struct {
 
 func (UnimplementedSKVServer) Get(context.Context, *GetRequest) (*GetReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedSKVServer) Del(context.Context, *DelRequest) (*DelReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Del not implemented")
 }
 func (UnimplementedSKVServer) Put(context.Context, *KeyValuePair) (*PutReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
@@ -135,6 +149,24 @@ func _SKV_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SKVServer).Get(ctx, req.(*GetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SKV_Del_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SKVServer).Del(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.SKV/Del",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SKVServer).Del(ctx, req.(*DelRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -188,6 +220,10 @@ var SKV_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _SKV_Get_Handler,
+		},
+		{
+			MethodName: "Del",
+			Handler:    _SKV_Del_Handler,
 		},
 		{
 			MethodName: "Put",

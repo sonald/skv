@@ -39,8 +39,21 @@ func get(cli rpc.SKVClient, key string) []byte {
 		return nil
 	}
 
-	return reply.Value
-	//log.Printf("reply: %s\n", reply.Value)
+	return reply.GetValue()
+}
+
+func del(cli rpc.SKVClient, key string) int32 {
+	var ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req := &rpc.DelRequest{Key: key}
+	reply, err := cli.Del(ctx, req)
+	if err != nil {
+		log.Printf("reply: %s\n", err.Error())
+		return 1
+	}
+
+	return reply.GetError()
 }
 
 func scan(cli rpc.SKVClient, f func(k string, v []byte) bool) {

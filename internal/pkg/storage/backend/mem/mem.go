@@ -71,7 +71,8 @@ func (ms MemStorage) Get(key *storage.InternalKey) ([]byte, error) {
 
 func (ms MemStorage) Del(key *storage.InternalKey) error {
 	if elem := ms.sl.Find(key); elem == nil {
-		return storage.ErrNotFound
+		ms.sl.Set(key, []byte{})
+
 	} else {
 		ikey := elem.Key().(*storage.InternalKey)
 		if bytes.Compare(ikey.Key(), key.Key()) != 0 {

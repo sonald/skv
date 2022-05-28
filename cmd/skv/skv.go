@@ -60,8 +60,10 @@ var rootCmd = &cobra.Command{
 			kv.WithDumpCountThreshold(viper.GetInt(kSkvCountThreshold)),
 			kv.WithDumpSizeThreshold(viper.GetInt(kSkvSizeThreshold)),
 		}
+		db := NewSKVServer(skopts...)
+		defer db.(*SKVServerImpl).Shutdown()
 
-		rpc.RegisterSKVServer(s, NewSKVServer(skopts...))
+		rpc.RegisterSKVServer(s, db)
 		if err := s.Serve(listener); err != nil {
 			log.Printf("err: %s\n", err.Error())
 		}
