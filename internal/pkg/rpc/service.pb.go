@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.19.4
-// source: pkg/rpc/service.proto
+// source: internal/pkg/rpc/service.proto
 
 package rpc
 
@@ -31,7 +31,7 @@ type GetRequest struct {
 func (x *GetRequest) Reset() {
 	*x = GetRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_rpc_service_proto_msgTypes[0]
+		mi := &file_internal_pkg_rpc_service_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -44,7 +44,7 @@ func (x *GetRequest) String() string {
 func (*GetRequest) ProtoMessage() {}
 
 func (x *GetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_service_proto_msgTypes[0]
+	mi := &file_internal_pkg_rpc_service_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *GetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRequest.ProtoReflect.Descriptor instead.
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_service_proto_rawDescGZIP(), []int{0}
+	return file_internal_pkg_rpc_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetRequest) GetKey() string {
@@ -72,13 +72,13 @@ type GetReply struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value []byte `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (x *GetReply) Reset() {
 	*x = GetReply{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_rpc_service_proto_msgTypes[1]
+		mi := &file_internal_pkg_rpc_service_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -91,7 +91,7 @@ func (x *GetReply) String() string {
 func (*GetReply) ProtoMessage() {}
 
 func (x *GetReply) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_service_proto_msgTypes[1]
+	mi := &file_internal_pkg_rpc_service_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -104,14 +104,14 @@ func (x *GetReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReply.ProtoReflect.Descriptor instead.
 func (*GetReply) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_service_proto_rawDescGZIP(), []int{1}
+	return file_internal_pkg_rpc_service_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *GetReply) GetValue() string {
+func (x *GetReply) GetValue() []byte {
 	if x != nil {
 		return x.Value
 	}
-	return ""
+	return nil
 }
 
 type PutReply struct {
@@ -125,7 +125,7 @@ type PutReply struct {
 func (x *PutReply) Reset() {
 	*x = PutReply{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_rpc_service_proto_msgTypes[2]
+		mi := &file_internal_pkg_rpc_service_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -138,7 +138,7 @@ func (x *PutReply) String() string {
 func (*PutReply) ProtoMessage() {}
 
 func (x *PutReply) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_service_proto_msgTypes[2]
+	mi := &file_internal_pkg_rpc_service_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -151,7 +151,7 @@ func (x *PutReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutReply.ProtoReflect.Descriptor instead.
 func (*PutReply) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_service_proto_rawDescGZIP(), []int{2}
+	return file_internal_pkg_rpc_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PutReply) GetError() int32 {
@@ -173,7 +173,7 @@ type ScanOption struct {
 func (x *ScanOption) Reset() {
 	*x = ScanOption{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_rpc_service_proto_msgTypes[3]
+		mi := &file_internal_pkg_rpc_service_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -186,7 +186,7 @@ func (x *ScanOption) String() string {
 func (*ScanOption) ProtoMessage() {}
 
 func (x *ScanOption) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_service_proto_msgTypes[3]
+	mi := &file_internal_pkg_rpc_service_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -199,7 +199,7 @@ func (x *ScanOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanOption.ProtoReflect.Descriptor instead.
 func (*ScanOption) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_service_proto_rawDescGZIP(), []int{3}
+	return file_internal_pkg_rpc_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ScanOption) GetLimits() int32 {
@@ -222,13 +222,13 @@ type KeyValuePair struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (x *KeyValuePair) Reset() {
 	*x = KeyValuePair{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_rpc_service_proto_msgTypes[4]
+		mi := &file_internal_pkg_rpc_service_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -241,7 +241,7 @@ func (x *KeyValuePair) String() string {
 func (*KeyValuePair) ProtoMessage() {}
 
 func (x *KeyValuePair) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_rpc_service_proto_msgTypes[4]
+	mi := &file_internal_pkg_rpc_service_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -254,7 +254,7 @@ func (x *KeyValuePair) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyValuePair.ProtoReflect.Descriptor instead.
 func (*KeyValuePair) Descriptor() ([]byte, []int) {
-	return file_pkg_rpc_service_proto_rawDescGZIP(), []int{4}
+	return file_internal_pkg_rpc_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *KeyValuePair) GetKey() string {
@@ -264,70 +264,70 @@ func (x *KeyValuePair) GetKey() string {
 	return ""
 }
 
-func (x *KeyValuePair) GetValue() string {
+func (x *KeyValuePair) GetValue() []byte {
 	if x != nil {
 		return x.Value
 	}
-	return ""
+	return nil
 }
 
-var File_pkg_rpc_service_proto protoreflect.FileDescriptor
+var File_internal_pkg_rpc_service_proto protoreflect.FileDescriptor
 
-var file_pkg_rpc_service_proto_rawDesc = []byte{
-	0x0a, 0x15, 0x70, 0x6b, 0x67, 0x2f, 0x72, 0x70, 0x63, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x03, 0x72, 0x70, 0x63, 0x22, 0x1e, 0x0a, 0x0a,
-	0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65,
-	0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x22, 0x20, 0x0a, 0x08,
-	0x47, 0x65, 0x74, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75,
-	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x20,
-	0x0a, 0x08, 0x50, 0x75, 0x74, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x72,
-	0x72, 0x6f, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72,
-	0x22, 0x3c, 0x0a, 0x0a, 0x53, 0x63, 0x61, 0x6e, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x16,
-	0x0a, 0x06, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x06,
-	0x6c, 0x69, 0x6d, 0x69, 0x74, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x22, 0x36,
-	0x0a, 0x0c, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x50, 0x61, 0x69, 0x72, 0x12, 0x10,
-	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79,
-	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x32, 0x89, 0x01, 0x0a, 0x03, 0x53, 0x4b, 0x56, 0x12, 0x27,
-	0x0a, 0x03, 0x47, 0x65, 0x74, 0x12, 0x0f, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x47, 0x65, 0x74, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0d, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x47, 0x65, 0x74,
-	0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x12, 0x29, 0x0a, 0x03, 0x50, 0x75, 0x74, 0x12, 0x11,
-	0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x50, 0x61, 0x69,
-	0x72, 0x1a, 0x0d, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x50, 0x75, 0x74, 0x52, 0x65, 0x70, 0x6c, 0x79,
-	0x22, 0x00, 0x12, 0x2e, 0x0a, 0x04, 0x53, 0x63, 0x61, 0x6e, 0x12, 0x0f, 0x2e, 0x72, 0x70, 0x63,
-	0x2e, 0x53, 0x63, 0x61, 0x6e, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x1a, 0x11, 0x2e, 0x72, 0x70,
-	0x63, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x50, 0x61, 0x69, 0x72, 0x22, 0x00,
-	0x30, 0x01, 0x42, 0x1b, 0x5a, 0x19, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x73, 0x6f, 0x6e, 0x61, 0x6c, 0x64, 0x2f, 0x73, 0x6b, 0x76, 0x2f, 0x72, 0x70, 0x63, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+var file_internal_pkg_rpc_service_proto_rawDesc = []byte{
+	0x0a, 0x1e, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x72,
+	0x70, 0x63, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x12, 0x03, 0x72, 0x70, 0x63, 0x22, 0x1e, 0x0a, 0x0a, 0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x03, 0x6b, 0x65, 0x79, 0x22, 0x20, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x52, 0x65, 0x70, 0x6c,
+	0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x20, 0x0a, 0x08, 0x50, 0x75, 0x74, 0x52, 0x65,
+	0x70, 0x6c, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x05, 0x52, 0x05, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x22, 0x3c, 0x0a, 0x0a, 0x53, 0x63, 0x61,
+	0x6e, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x16, 0x0a, 0x06, 0x6c, 0x69, 0x6d, 0x69, 0x74,
+	0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x06, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x73, 0x12,
+	0x16, 0x0a, 0x06, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x06, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x22, 0x36, 0x0a, 0x0c, 0x4b, 0x65, 0x79, 0x56, 0x61,
+	0x6c, 0x75, 0x65, 0x50, 0x61, 0x69, 0x72, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x32,
+	0x89, 0x01, 0x0a, 0x03, 0x53, 0x4b, 0x56, 0x12, 0x27, 0x0a, 0x03, 0x47, 0x65, 0x74, 0x12, 0x0f,
+	0x2e, 0x72, 0x70, 0x63, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x0d, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x00,
+	0x12, 0x29, 0x0a, 0x03, 0x50, 0x75, 0x74, 0x12, 0x11, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4b, 0x65,
+	0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x50, 0x61, 0x69, 0x72, 0x1a, 0x0d, 0x2e, 0x72, 0x70, 0x63,
+	0x2e, 0x50, 0x75, 0x74, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x12, 0x2e, 0x0a, 0x04, 0x53,
+	0x63, 0x61, 0x6e, 0x12, 0x0f, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x53, 0x63, 0x61, 0x6e, 0x4f, 0x70,
+	0x74, 0x69, 0x6f, 0x6e, 0x1a, 0x11, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61,
+	0x6c, 0x75, 0x65, 0x50, 0x61, 0x69, 0x72, 0x22, 0x00, 0x30, 0x01, 0x42, 0x1b, 0x5a, 0x19, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x6f, 0x6e, 0x61, 0x6c, 0x64,
+	0x2f, 0x73, 0x6b, 0x76, 0x2f, 0x72, 0x70, 0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
-	file_pkg_rpc_service_proto_rawDescOnce sync.Once
-	file_pkg_rpc_service_proto_rawDescData = file_pkg_rpc_service_proto_rawDesc
+	file_internal_pkg_rpc_service_proto_rawDescOnce sync.Once
+	file_internal_pkg_rpc_service_proto_rawDescData = file_internal_pkg_rpc_service_proto_rawDesc
 )
 
-func file_pkg_rpc_service_proto_rawDescGZIP() []byte {
-	file_pkg_rpc_service_proto_rawDescOnce.Do(func() {
-		file_pkg_rpc_service_proto_rawDescData = protoimpl.X.CompressGZIP(file_pkg_rpc_service_proto_rawDescData)
+func file_internal_pkg_rpc_service_proto_rawDescGZIP() []byte {
+	file_internal_pkg_rpc_service_proto_rawDescOnce.Do(func() {
+		file_internal_pkg_rpc_service_proto_rawDescData = protoimpl.X.CompressGZIP(file_internal_pkg_rpc_service_proto_rawDescData)
 	})
-	return file_pkg_rpc_service_proto_rawDescData
+	return file_internal_pkg_rpc_service_proto_rawDescData
 }
 
-var file_pkg_rpc_service_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_pkg_rpc_service_proto_goTypes = []interface{}{
+var file_internal_pkg_rpc_service_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_internal_pkg_rpc_service_proto_goTypes = []interface{}{
 	(*GetRequest)(nil),   // 0: rpc.GetRequest
 	(*GetReply)(nil),     // 1: rpc.GetReply
 	(*PutReply)(nil),     // 2: rpc.PutReply
 	(*ScanOption)(nil),   // 3: rpc.ScanOption
 	(*KeyValuePair)(nil), // 4: rpc.KeyValuePair
 }
-var file_pkg_rpc_service_proto_depIdxs = []int32{
-	0, // 0: rpc.SKV.GetOffset:input_type -> rpc.GetRequest
+var file_internal_pkg_rpc_service_proto_depIdxs = []int32{
+	0, // 0: rpc.SKV.Get:input_type -> rpc.GetRequest
 	4, // 1: rpc.SKV.Put:input_type -> rpc.KeyValuePair
 	3, // 2: rpc.SKV.Scan:input_type -> rpc.ScanOption
-	1, // 3: rpc.SKV.GetOffset:output_type -> rpc.GetReply
+	1, // 3: rpc.SKV.Get:output_type -> rpc.GetReply
 	2, // 4: rpc.SKV.Put:output_type -> rpc.PutReply
 	4, // 5: rpc.SKV.Scan:output_type -> rpc.KeyValuePair
 	3, // [3:6] is the sub-list for method output_type
@@ -337,13 +337,13 @@ var file_pkg_rpc_service_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_pkg_rpc_service_proto_init() }
-func file_pkg_rpc_service_proto_init() {
-	if File_pkg_rpc_service_proto != nil {
+func init() { file_internal_pkg_rpc_service_proto_init() }
+func file_internal_pkg_rpc_service_proto_init() {
+	if File_internal_pkg_rpc_service_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_pkg_rpc_service_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_internal_pkg_rpc_service_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetRequest); i {
 			case 0:
 				return &v.state
@@ -355,7 +355,7 @@ func file_pkg_rpc_service_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_rpc_service_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_internal_pkg_rpc_service_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetReply); i {
 			case 0:
 				return &v.state
@@ -367,7 +367,7 @@ func file_pkg_rpc_service_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_rpc_service_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_internal_pkg_rpc_service_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PutReply); i {
 			case 0:
 				return &v.state
@@ -379,7 +379,7 @@ func file_pkg_rpc_service_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_rpc_service_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_internal_pkg_rpc_service_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ScanOption); i {
 			case 0:
 				return &v.state
@@ -391,7 +391,7 @@ func file_pkg_rpc_service_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_rpc_service_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_internal_pkg_rpc_service_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*KeyValuePair); i {
 			case 0:
 				return &v.state
@@ -408,18 +408,18 @@ func file_pkg_rpc_service_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_pkg_rpc_service_proto_rawDesc,
+			RawDescriptor: file_internal_pkg_rpc_service_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_pkg_rpc_service_proto_goTypes,
-		DependencyIndexes: file_pkg_rpc_service_proto_depIdxs,
-		MessageInfos:      file_pkg_rpc_service_proto_msgTypes,
+		GoTypes:           file_internal_pkg_rpc_service_proto_goTypes,
+		DependencyIndexes: file_internal_pkg_rpc_service_proto_depIdxs,
+		MessageInfos:      file_internal_pkg_rpc_service_proto_msgTypes,
 	}.Build()
-	File_pkg_rpc_service_proto = out.File
-	file_pkg_rpc_service_proto_rawDesc = nil
-	file_pkg_rpc_service_proto_goTypes = nil
-	file_pkg_rpc_service_proto_depIdxs = nil
+	File_internal_pkg_rpc_service_proto = out.File
+	file_internal_pkg_rpc_service_proto_rawDesc = nil
+	file_internal_pkg_rpc_service_proto_goTypes = nil
+	file_internal_pkg_rpc_service_proto_depIdxs = nil
 }

@@ -18,17 +18,17 @@ func (ns *NoopStorage) Count() int {
 	return 0
 }
 
-func (ns *NoopStorage) Scan(f func(k string, v string) bool) {
+func (ns *NoopStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 }
 
-func (ns *NoopStorage) Put(key, value string) error {
+func (ns *NoopStorage) Put(key *storage.InternalKey, value []byte) error {
 	return storage.ErrNotFound
 }
 
-func (ns *NoopStorage) Del(key string) error {
+func (ns *NoopStorage) Del(key *storage.InternalKey) error {
 	return storage.ErrNotFound
 }
 
-func (ns *NoopStorage) Get(key string) (string, error) {
-	return "", storage.ErrNotFound
+func (ns *NoopStorage) Get(key *storage.InternalKey) ([]byte, error) {
+	return nil, storage.ErrNotFound
 }

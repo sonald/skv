@@ -14,7 +14,7 @@ message GetRequest {
 }
 
 message GetReply {
-  string value = 1;
+  bytes value = 1;
 }
 
 message PutReply {
@@ -28,5 +28,5 @@ message ScanOption {
 
 message KeyValuePair {
   string key = 1;
-  string value = 2;
+  bytes value = 2;
 }

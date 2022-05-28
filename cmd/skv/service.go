@@ -27,9 +27,9 @@ func (skv *SKVServerImpl) Put(ctx context.Context, req *rpc.KeyValuePair) (*rpc.
 }
 func (skv *SKVServerImpl) Scan(opts *rpc.ScanOption, stream rpc.SKV_ScanServer) error {
 	var err error
-	skv.db.Scan(func(k string, v string) bool {
+	skv.db.Scan(func(k string, v []byte) bool {
 		var p = &rpc.KeyValuePair{
-			Key:   k,
+			Key:   string(k),
 			Value: v,
 		}
 

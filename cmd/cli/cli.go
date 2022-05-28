@@ -48,7 +48,7 @@ var putCmd = &cobra.Command{
 		cli, conn := startClient(host, port)
 		defer conn.Close()
 
-		put(cli, args[0], strings.Join(args[1:], " "))
+		put(cli, args[0], []byte(strings.Join(args[1:], " ")))
 	},
 }
 
@@ -65,7 +65,7 @@ var getCmd = &cobra.Command{
 		if len(args) == 0 {
 			return
 		}
-		fmt.Println(get(cli, args[0]))
+		fmt.Println(string(get(cli, args[0])))
 
 	},
 }
@@ -83,8 +83,8 @@ var listCmd = &cobra.Command{
 
 		fmt.Println("scanning....")
 		var seq int
-		scan(cli, func(k, v string) bool {
-			fmt.Printf("[%08d] %s - [%s]\n", seq, k, v)
+		scan(cli, func(k string, v []byte) bool {
+			fmt.Printf("[%08d] %s - [%s]\n", seq, k, string(v))
 			seq++
 
 			return true
@@ -166,8 +166,8 @@ func interactive(cli rpc.SKVClient) {
 		case strings.HasPrefix(ln, "list"):
 			fmt.Println("scanning....")
 			var seq int
-			scan(cli, func(k, v string) bool {
-				fmt.Printf("[%08d] %s - [%s]\n", seq, k, v)
+			scan(cli, func(k string, v []byte) bool {
+				fmt.Printf("[%08d] %s - [%s]\n", seq, k, string(v))
 				seq++
 
 				return true
@@ -181,11 +181,11 @@ func interactive(cli rpc.SKVClient) {
 
 			key := ln[:i]
 			value := strings.TrimSpace(ln[i:])
-			put(cli, key, value)
+			put(cli, key, []byte(value))
 
 		case strings.HasPrefix(ln, "get"):
 			val := get(cli, strings.TrimSpace(ln[3:]))
-			fmt.Println(val)
+			fmt.Println(string(val))
 
 		case ln == "help" || ln == "?":
 			fmt.Printf("skv [list|put|get]\n")

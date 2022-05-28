@@ -1,7 +1,9 @@
 package kv
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/sonald/skv/internal/pkg/storage"
 	"log"
 	"math/rand"
 	"testing"
@@ -21,7 +23,7 @@ func TestKV_RandomPut(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		key := fmt.Sprintf("key%02d", r.Intn(40))
-		db.Put(key, fmt.Sprintf("value%d", r.Int31()))
+		db.Put(key, []byte(fmt.Sprintf("value%d", r.Int31())))
 	}
 }
 
@@ -37,19 +39,19 @@ func TestKV_Get(t *testing.T) {
 
 	r := rand.New(rand.NewSource(0xdeadbeef))
 
-	key99val := fmt.Sprintf("value%4d", r.Intn(1000))
+	key99val := []byte(fmt.Sprintf("value%4d", r.Intn(1000)))
 	db.Put("key99", key99val)
 
 	t.Run("batchput", func(t *testing.T) {
 		for i := 0; i < 30; i++ {
 			key := fmt.Sprintf("key%02d", r.Intn(40))
-			db.Put(key, fmt.Sprintf("value%d", r.Int31()))
+			db.Put(key, []byte(fmt.Sprintf("value%d", r.Int31())))
 
 			if i == 12 {
 				if v, err := db.Get("key99"); err != nil {
 					t.Fatalf("get key99 failed: %s\n", err.Error())
 				} else {
-					if v != key99val {
+					if bytes.Compare(v, key99val) != 0 {
 						t.Fatalf("get wrong value of key99\n")
 					}
 				}
@@ -58,7 +60,8 @@ func TestKV_Get(t *testing.T) {
 	})
 
 	t.Run("get", func(t *testing.T) {
-		err := db.Put("key1", "value1")
+		target := []byte("value1")
+		err := db.Put("key1", target)
 		if err != nil {
 			t.Errorf("put key1 failed: %s\n", err.Error())
 			return
@@ -70,18 +73,18 @@ func TestKV_Get(t *testing.T) {
 			return
 		}
 
-		if v != "key1" {
-			t.Failed()
+		if bytes.Compare(v, target) != 0 {
+			t.Fatalf("wrong value")
 		}
 	})
 
 	t.Run("Nput1get", func(t *testing.T) {
 		r := rand.New(rand.NewSource(0xdeadbeef))
-		var lastVal string
+		var lastVal []byte
 		var key = "key2"
 		var count = 40 // exceed threshold
 		for i := 0; i < count; i++ {
-			lastVal = fmt.Sprintf("value%04d", r.Int31())
+			lastVal = []byte(fmt.Sprintf("value%04d", r.Int31()))
 			err := db.Put(key, lastVal)
 			if err != nil {
 				t.Errorf("put key failed: %s\n", err.Error())
@@ -95,18 +98,18 @@ func TestKV_Get(t *testing.T) {
 			return
 		}
 
-		if v != lastVal {
+		if bytes.Compare(v, lastVal) != 0 {
 			t.Error("get recent key's value failed")
 		}
 	})
 
 	t.Run("NputMget", func(t *testing.T) {
 		r := rand.New(rand.NewSource(0xdeadbeef))
-		var lastVal string
+		var lastVal []byte
 		var key = "key2"
 		var count = 40 // exceed threshold
 		for i := 0; i < count; i++ {
-			lastVal = fmt.Sprintf("value%04d", r.Int31())
+			lastVal = []byte(fmt.Sprintf("value%04d", r.Int31()))
 			err := db.Put(key, lastVal)
 			if err != nil {
 				t.Errorf("put key failed: %s\n", err.Error())
@@ -119,7 +122,7 @@ func TestKV_Get(t *testing.T) {
 				return
 			}
 
-			if v != lastVal {
+			if bytes.Compare(v, lastVal) != 0 {
 				t.Error("get recent key's value failed")
 			}
 			//t.Logf("lastVal: %s\n", lastVal)
@@ -132,7 +135,7 @@ func TestKV_Get(t *testing.T) {
 			{"key4", "value4"},
 		}
 		for _, d := range data {
-			err := db.Put(d[0], d[1])
+			err := db.Put(d[0], []byte(d[1]))
 			if err != nil {
 				t.Errorf("put key failed: %s\n", err.Error())
 				return
@@ -144,7 +147,7 @@ func TestKV_Get(t *testing.T) {
 			t.Errorf("get key failed: %s\n", err.Error())
 		}
 
-		if v != "value4" {
+		if string(v) != "value4" {
 			t.Errorf("get key4's value failed")
 		}
 
@@ -153,7 +156,7 @@ func TestKV_Get(t *testing.T) {
 			t.Errorf("get key failed: %s\n", err.Error())
 		}
 
-		if v != "value3" {
+		if string(v) != "value3" {
 			t.Errorf("get key3's value failed")
 		}
 	})
@@ -164,7 +167,7 @@ func TestKV_Get(t *testing.T) {
 			t.Errorf("get key failed: %s\n", err.Error())
 		}
 
-		if v != key99val {
+		if bytes.Compare(v, key99val) != 0 {
 			t.Errorf("get key99's value failed")
 		}
 	})
@@ -186,7 +189,7 @@ func TestKV_BloomFilter(t *testing.T) {
 
 		for i := 0; i < 40; i++ {
 			key := fmt.Sprintf("key%02d", i)
-			db.Put(key, fmt.Sprintf("value%d", i))
+			db.Put(key, []byte(fmt.Sprintf("value%d", i)))
 		}
 	})
 
@@ -207,10 +210,111 @@ func TestKV_BloomFilter(t *testing.T) {
 				log.Fatalf("get(%s) failed\n", key)
 			}
 
-			if v != fmt.Sprintf("value%d", i) {
+			if string(v) != fmt.Sprintf("value%d", i) {
 				log.Fatalf("get(%s) wrong value\n", key)
 			}
 		}
 	})
 
+}
+
+func TestKV_Del(t *testing.T) {
+	var skopts = []KVOption{
+		WithRoot(t.TempDir()),
+		WithDumpPolicy(DumpByCount),
+		WithDumpCountThreshold(10),
+		WithDumpSizeThreshold(1000),
+	}
+	db := NewKV(skopts...)
+	defer db.Close()
+
+	r := rand.New(rand.NewSource(0xdeadbeef))
+
+	key99val := []byte(fmt.Sprintf("value%04d", r.Intn(1000)))
+	db.Put("key99", key99val)
+
+	t.Run("batchput", func(t *testing.T) {
+		for i := 0; i < 30; i++ {
+			key := fmt.Sprintf("key%02d", r.Intn(40))
+			db.Put(key, []byte(fmt.Sprintf("value%d", r.Int31())))
+
+			if i == 12 {
+				if v, err := db.Get("key99"); err != nil {
+					t.Fatalf("get key99 failed: %s\n", err.Error())
+				} else {
+					if bytes.Compare(v, key99val) != 0 {
+						t.Fatalf("get wrong value of key99\n")
+					}
+				}
+			}
+		}
+	})
+
+	t.Run("del", func(t *testing.T) {
+		key := "key1"
+		err := db.Put(key, []byte("value1"))
+		if err != nil {
+			t.Fatalf("put key1 failed: %s\n", err.Error())
+		}
+
+		err = db.Del(key)
+		if err != nil {
+			t.Fatalf("del key1 failed: %s\n", err.Error())
+		}
+
+		//db.Scan(func(k string, v []byte) bool {
+		//	log.Printf(" %s\t\t- %s\n", k, string(v))
+		//	return true
+		//})
+
+		_, err = db.Get(key)
+		if err != storage.ErrKeyDeleted {
+			t.Fatalf("get key1 failed: %s\n", err.Error())
+		}
+	})
+
+	t.Run("del2", func(t *testing.T) {
+		target := "key_del2"
+		var val = []byte("value")
+		err := db.Put(target, val)
+		if err != nil {
+			t.Fatalf("put: %v\n", err)
+		}
+
+		err = db.Del(target)
+		if err != nil {
+			t.Fatalf("del failed")
+		}
+
+		val2, err := db.Get(target)
+		if err == nil {
+			t.Fatalf("key gets deleted")
+		}
+
+		err = db.Del(target)
+		if err != nil {
+			t.Fatalf("del failed")
+		}
+
+		//db.Scan(func(k string, v []byte) bool {
+		//	log.Printf(" %s\t\t- %s\n", k, string(v))
+		//	return true
+		//})
+
+		val2, err = db.Get(target)
+		if err != storage.ErrKeyDeleted {
+			t.Fatalf("key should not be found: val %s, err %v", string(val2), err)
+		}
+	})
+
+	t.Run("oldest", func(t *testing.T) {
+		v, err := db.Get("key99")
+		if err != nil {
+			t.Errorf("get key failed: %s\n", err.Error())
+		}
+
+		if bytes.Compare(v, key99val) != 0 {
+			t.Errorf("get key99's value failed")
+		}
+	})
 }

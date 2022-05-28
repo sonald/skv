@@ -6,10 +6,10 @@ const (
 )
 
 type KV interface {
-	Put(key string, value string) error
-	Get(key string) (string, error)
+	Put(key string, value []byte) error
+	Get(key string) ([]byte, error)
 	Del(key string) error
-	Scan(func(k, v string) bool)
+	Scan(func(k string, v []byte) bool)
 	Close()
 	Stats()
 }

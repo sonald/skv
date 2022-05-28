@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func put(cli rpc.SKVClient, key, value string) {
+func put(cli rpc.SKVClient, key string, value []byte) {
 	var ctx, cancel = context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	p := &rpc.KeyValuePair{
@@ -28,7 +28,7 @@ func put(cli rpc.SKVClient, key, value string) {
 	//log.Printf("reply: %d\n", reply.GetError())
 }
 
-func get(cli rpc.SKVClient, key string) string {
+func get(cli rpc.SKVClient, key string) []byte {
 	var ctx, cancel = context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -36,14 +36,14 @@ func get(cli rpc.SKVClient, key string) string {
 	reply, err := cli.Get(ctx, req)
 	if err != nil {
 		log.Printf("reply: %s\n", err.Error())
-		return ""
+		return nil
 	}
 
 	return reply.Value
 	//log.Printf("reply: %s\n", reply.Value)
 }
 
-func scan(cli rpc.SKVClient, f func(k, v string) bool) {
+func scan(cli rpc.SKVClient, f func(k string, v []byte) bool) {
 	var ctx, cancel = context.WithTimeout(context.Background(), time.Hour)
 	defer cancel()
 
@@ -79,7 +79,7 @@ func randomTest(cli rpc.SKVClient) {
 
 	for i := 0; i < 100; i++ {
 		key := fmt.Sprintf("key%02d", r.Intn(40))
-		put(cli, key, fmt.Sprintf("value%d", r.Int31()))
+		put(cli, key, []byte(fmt.Sprintf("value%d", r.Int31())))
 	}
 
 }

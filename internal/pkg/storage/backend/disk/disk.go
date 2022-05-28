@@ -2,8 +2,6 @@ package disk
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"github.com/huandu/skiplist"
 	"github.com/sonald/skv/internal/pkg/storage"
@@ -85,52 +83,33 @@ func (ds *DiskStorage) LoadIndex() {
 	}
 }
 
-func strToBytes(s string) ([]byte, error) {
-	szBuf := make([]byte, 4)
-	binary.BigEndian.PutUint32(szBuf, uint32(len(s)))
-
-	var b bytes.Buffer
-	ew := utils.NewErrWriter(&b)
-
-	ew.Write(szBuf)
-	ew.Write([]byte(s))
-
-	return b.Bytes(), ew.Err()
-}
-
-func (ds *DiskStorage) Put(key, value string) error {
-	// TODO: better marshalling
-	// write metadata
-	// prefix namespace
-
+func (ds *DiskStorage) Put(key *storage.InternalKey, value []byte) error {
 	if ds.filter != nil {
 		ds.filter.Set(key)
 	}
 
 	w := bufio.NewWriter(ds.w)
+	ew := utils.NewErrWriter(w)
 
-	var seq = []string{key, value}
-	for _, payload := range seq {
-		//log.Println("marshal " + payload)
-		data, err := strToBytes(payload)
-		if err != nil {
-			return err
-		}
-
-		w.Write(data)
+	data, err := storage.LengthPrefixed(value)
+	if err != nil {
+		return err
 	}
-
+	ew.Write(key.Encode())
+	ew.Write(data)
+	if err != nil {
+		return ew.Err()
+	}
 	return w.Flush()
 }
 
-func (ds *DiskStorage) Get(key string) (string, error) {
+func (ds *DiskStorage) Get(key *storage.InternalKey) ([]byte, error) {
 	var err error
-	var val string
 	var offset int64 = 0
 
 	if ds.filter != nil {
 		if !ds.filter.Check(key) {
-			return "", storage.ErrNotFound
+			return nil, storage.ErrNotFound
 		}
 	}
 
@@ -139,6 +118,7 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 
 	if ds.index != nil {
 		if offset, err = ds.index.GetOffset(key); err != nil {
+			log.Println(err)
 			offset = 0
 		}
 		log.Printf("fast offset(%d) by index", offset)
@@ -146,32 +126,34 @@ func (ds *DiskStorage) Get(key string) (string, error) {
 
 	_, err = ds.r.Seek(offset, io.SeekStart)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+
 	br := bufio.NewReader(ds.r)
 	for {
-		keyRead, err := readSizedValue(br)
+		keyRead, err := storage.ReadInternalKey(br)
 		if err == io.EOF {
 			break
 		}
 
-		//log.Printf("read key: [%s]\n", keyRead)
-		if keyRead == key {
-			return readSizedValue(br)
+		//TODO: check if key is deleted
+		//log.Printf("read key: [%s]\n", string(keyRead.Key()))
+		if keyRead.Equal(key) {
+			return storage.ReadLengthPrefixed(br)
 		} else {
-			err = discardSizedValue(br)
+			err = storage.DiscardLengthPrefixedValue(br)
 		}
 
 		if err != nil {
-			break
+			return nil, err
 		}
 	}
 
-	return val, storage.ErrNotFound
+	return nil, storage.ErrNotFound
 }
 
-func (ds *DiskStorage) Del(key string) error {
-	log.Fatalf("disk should never del a key")
+func (ds *DiskStorage) Del(key *storage.InternalKey) error {
+	log.Fatalln("disk should never delete a key")
 	return nil
 }
 
@@ -186,7 +168,7 @@ func (ds *DiskStorage) writeIndex() {
 	}
 
 	idx := &DiskStorageIndex{
-		data: skiplist.New(skiplist.String),
+		data: skiplist.New(skiplist.GreaterThanFunc(storage.GreaterThan)),
 		path: fmt.Sprintf("%s_index", ds.segment),
 	}
 
@@ -218,19 +200,17 @@ func (ds *DiskStorage) Count() int {
 	return 0
 }
 
-func (ds *DiskStorage) Scan(f func(k string, v string) bool) {
-	var err error
-
+func (ds *DiskStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 	ds.r.Seek(0, io.SeekStart)
 	br := bufio.NewReader(ds.r)
 	for {
-		var key, val string
-		key, err = readSizedValue(br)
+
+		key, err := storage.ReadInternalKey(br)
 		if err == io.EOF {
 			break
 		}
 
-		val, err = readSizedValue(br)
+		val, err := storage.ReadLengthPrefixed(br)
 		if err != nil {
 			break
 		}

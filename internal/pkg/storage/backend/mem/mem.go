@@ -1,6 +1,7 @@
 package mem
 
 import (
+	"bytes"
 	"github.com/huandu/skiplist"
 	"github.com/sonald/skv/internal/pkg/storage"
 	"log"
@@ -28,10 +29,10 @@ func (ms MemStorage) Count() int {
 	return ms.sl.Len()
 }
 
-func (ms MemStorage) Scan(f func(k string, v string) bool) {
+func (ms MemStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 	elem := ms.sl.Front()
 	for elem != nil {
-		if !f(elem.Key().(string), elem.Value.(string)) {
+		if !f(elem.Key().(*storage.InternalKey), elem.Value.([]byte)) {
 			return
 		}
 
@@ -39,33 +40,55 @@ func (ms MemStorage) Scan(f func(k string, v string) bool) {
 	}
 }
 
-func (ms MemStorage) Put(key string, value string) error {
+func (ms MemStorage) Put(key *storage.InternalKey, value []byte) error {
 	//FIXME: test this overhead
 	if elem := ms.sl.Find(key); elem == nil {
-		ms.size += len(key) + len(value)
+		ms.size += len(key.Key()) + len(value)
 	} else {
-		ms.size += len(value) - len(elem.Value.(string))
+		ms.size += len(value) - len(elem.Value.([]byte))
 	}
 	ms.sl.Set(key, value)
 	return nil
 }
 
-func (ms MemStorage) Get(key string) (string, error) {
-	elem := ms.sl.Get(key)
+func (ms MemStorage) Get(key *storage.InternalKey) ([]byte, error) {
+	elem := ms.sl.Find(key)
 	if elem == nil {
-		return "", storage.ErrNotFound
+		return nil, storage.ErrNotFound
 	}
 
-	return elem.Value.(string), nil
+	ikey := elem.Key().(*storage.InternalKey)
+	if bytes.Compare(ikey.Key(), key.Key()) == 0 {
+		switch ikey.Tag() {
+		case storage.TagValue:
+			return elem.Value.([]byte), nil
+		case storage.TagTombstone:
+			return nil, storage.ErrKeyDeleted
+		}
+	}
+	return nil, storage.ErrNotFound
 }
 
-func (ms MemStorage) Del(key string) error {
+func (ms MemStorage) Del(key *storage.InternalKey) error {
+	if elem := ms.sl.Find(key); elem == nil {
+		return storage.ErrNotFound
+	} else {
+		ikey := elem.Key().(*storage.InternalKey)
+		if bytes.Compare(ikey.Key(), key.Key()) != 0 {
+			return storage.ErrNotFound
+		}
+		if ikey.Tag() != storage.TagTombstone {
+			ms.size -= len(elem.Value.([]byte))
+		}
+		ms.sl.Set(key, []byte{})
+	}
+
 	return nil
 }
 
 func NewMemStorage(options storage.Options) storage.Storage {
 	log.Printf("new memory storage %v\n", options)
 	return &MemStorage{
-		sl: skiplist.New(skiplist.String),
+		sl: skiplist.New(skiplist.GreaterThanFunc(storage.GreaterThan)),
 	}
 }

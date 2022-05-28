@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.19.4
-// source: pkg/rpc/service.proto
+// source: internal/pkg/rpc/service.proto
 
 package rpc
 
@@ -201,5 +201,5 @@ var SKV_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "pkg/rpc/service.proto",
+	Metadata: "internal/pkg/rpc/service.proto",
 }

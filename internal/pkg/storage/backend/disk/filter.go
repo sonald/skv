@@ -1,6 +1,8 @@
 package disk
 
+import "github.com/sonald/skv/internal/pkg/storage"
+
 type Filter interface {
-	Set(key string)
-	Check(key string) bool
+	Set(key *storage.InternalKey)
+	Check(key *storage.InternalKey) bool
 }

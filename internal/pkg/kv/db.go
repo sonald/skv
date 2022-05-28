@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type dumpJob struct {
@@ -31,7 +32,8 @@ type KVImpl struct {
 	dumpCountThreshold int
 	debug              bool
 
-	segmentSeq int
+	segmentSeq  int
+	keySequence uint64
 
 	closed bool
 	jobs   chan dumpJob
@@ -46,14 +48,26 @@ func (kv *KVImpl) buildSegmentName(seq int) string {
 	return fmt.Sprintf("%s/segment%08d", kv.root, seq)
 }
 
+func (kv *KVImpl) BuildInternalKey(userKey string, tag uint8) *storage.InternalKey {
+	kv.lock.Lock()
+	defer kv.lock.Unlock()
+
+	ikey := storage.KeyFromUser([]byte(userKey), kv.keySequence, tag)
+	kv.keySequence++
+
+	return ikey
+}
+
 //FIXME: when writing sstable, Get operation should find data from old memtable
 func (kv *KVImpl) writeSSTable(j dumpJob) {
 	if kv.closed {
 		panic("kv closed")
 	}
 
+	start := time.Now()
 	kv.wg.Add(1)
 	kv.jobs <- j
+	log.Printf("writeSSTable: cost %v, send job %s\n", time.Now().Sub(start), j.segment)
 }
 
 func (kv *KVImpl) newMemtable() dumpJob {
@@ -71,7 +85,7 @@ func (kv *KVImpl) newMemtable() dumpJob {
 	return job
 }
 
-func (kv *KVImpl) Put(key string, value string) error {
+func (kv *KVImpl) write(key string, tag uint8, value []byte) error {
 	var dump = false
 	switch kv.dumpPolicy {
 	case DumpByCount:
@@ -81,40 +95,68 @@ func (kv *KVImpl) Put(key string, value string) error {
 	}
 
 	if dump {
+		//log.Printf("dump: policy %d, count: (threshold %d, %d)\n", kv.dumpPolicy, kv.dumpCountThreshold,
+		//	kv.memtable.Count())
 		old := kv.newMemtable()
 		kv.writeSSTable(old)
-
 	}
 
-	return kv.memtable.Put(key, value)
+	ikey := kv.BuildInternalKey(key, tag)
+
+	switch tag {
+	case storage.TagValue:
+		return kv.memtable.Put(ikey, value)
+	case storage.TagTombstone:
+		return kv.memtable.Del(ikey)
+	}
+
+	return nil
 }
 
-func (kv *KVImpl) fastGet(key string) (string, error) {
+func (kv *KVImpl) Del(key string) error {
+	return kv.write(key, storage.TagTombstone, nil)
+}
+
+func (kv *KVImpl) Put(key string, value []byte) error {
+	return kv.write(key, storage.TagValue, value)
+}
+
+func (kv *KVImpl) fastGet(key *storage.InternalKey) ([]byte, error) {
 	kv.lock.Lock()
 	defer kv.lock.Unlock()
 
-	if val, err := kv.memtable.Get(key); err == nil {
+	if val, err := kv.memtable.Get(key); err == storage.ErrNotFound {
+		// go to next level
+	} else {
 		return val, err
 	}
 
+	log.Printf("fastGet: memtable failed, go to outgoings\n")
 	if kv.outgoings != nil {
 		for i := len(kv.outgoings) - 1; i >= 0; i-- {
-			if val, err := kv.outgoings[i].s.Get(key); err == nil {
+			if val, err := kv.outgoings[i].s.Get(key); err == storage.ErrNotFound {
+				// go to next
+			} else {
 				return val, err
 			}
 		}
 	}
 
-	return "", storage.ErrNotFound
+	return nil, storage.ErrNotFound
 }
 
 //TODO: conccurent read?
-func (kv *KVImpl) Get(key string) (string, error) {
-	if val, err := kv.fastGet(key); err == nil {
+func (kv *KVImpl) Get(key string) ([]byte, error) {
+	ikey := storage.KeyFromUser([]byte(key), kv.keySequence, storage.TagValue)
+
+	if val, err := kv.fastGet(ikey); err == storage.ErrNotFound {
+		// go to disk
+	} else {
 		return val, err
 	}
 
 	for i := kv.segmentSeq - 1; i >= 0; i-- {
+		// TODO: cache opened segments
 		ds := storage.GetStorage("disk", storage.Options{
 			Args: map[string]interface{}{
 				bd.SegmentNameOpt:       kv.buildSegmentName(i),
@@ -126,22 +168,20 @@ func (kv *KVImpl) Get(key string) (string, error) {
 			log.Printf("Get: fallback to %s\n", kv.buildSegmentName(i))
 		}
 
-		if val, err := ds.Get(key); err == nil {
+		if val, err := ds.Get(ikey); err == storage.ErrNotFound {
+
+		} else {
 			ds.Close()
 			return val, err
 		}
 		ds.Close()
 	}
 
-	return "", storage.ErrNotFound
-}
-
-func (kv *KVImpl) Del(key string) error {
-	return kv.memtable.Del(key)
+	return nil, storage.ErrNotFound
 }
 
 //FIXME: not good
-func (kv *KVImpl) Scan(f func(k string, v string) bool) {
+func (kv *KVImpl) Scan(f func(k string, v []byte) bool) {
 	ms := storage.GetStorage("mem", storage.Options{})
 	defer ms.Close()
 
@@ -155,18 +195,21 @@ func (kv *KVImpl) Scan(f func(k string, v string) bool) {
 
 		defer ds.Close()
 
-		ds.Scan(func(k, v string) bool {
+		ds.Scan(func(k *storage.InternalKey, v []byte) bool {
 			return ms.Put(k, v) == nil
 		})
 	}
 
 	if kv.memtable != nil {
-		kv.memtable.Scan(func(k, v string) bool {
+		kv.memtable.Scan(func(k *storage.InternalKey, v []byte) bool {
 			return ms.Put(k, v) == nil
 		})
 	}
 
-	ms.Scan(f)
+	ms.Scan(func(k *storage.InternalKey, v []byte) bool {
+		f(string(k.Key()), v)
+		return true
+	})
 }
 
 func nextUsableSequence(root string) int {
@@ -215,7 +258,7 @@ func (kv *KVImpl) startJobManager() {
 						},
 					})
 
-					job.s.Scan(func(k, v string) bool {
+					job.s.Scan(func(k *storage.InternalKey, v []byte) bool {
 						return ds.Put(k, v) == nil
 					})
 
@@ -248,6 +291,7 @@ func NewKV(opts ...KVOption) KV {
 		dumpPolicy:         DumpByCount,
 		root:               "/tmp/skv",
 		jobs:               make(chan dumpJob),
+		keySequence:        0,
 	}
 
 	for _, opt := range opts {
