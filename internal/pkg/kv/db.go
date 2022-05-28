@@ -180,8 +180,12 @@ func (kv *KVImpl) Get(key string) ([]byte, error) {
 	return nil, storage.ErrNotFound
 }
 
-//FIXME: not good
+// Scan
+// FIXME: performance is bad
+// this is like replaying all put operations
 func (kv *KVImpl) Scan(f func(k string, v []byte) bool) {
+	var sequence uint64 = 0
+
 	ms := storage.GetStorage("mem", storage.Options{})
 	defer ms.Close()
 
@@ -196,13 +200,19 @@ func (kv *KVImpl) Scan(f func(k string, v []byte) bool) {
 		defer ds.Close()
 
 		ds.Scan(func(k *storage.InternalKey, v []byte) bool {
-			return ms.Put(k, v) == nil
+			newKey := storage.KeyFromUser(k.Key(), sequence, uint8(k.Tag()))
+			sequence++
+
+			return ms.Put(newKey, v) == nil
 		})
 	}
 
 	if kv.memtable != nil {
 		kv.memtable.Scan(func(k *storage.InternalKey, v []byte) bool {
-			return ms.Put(k, v) == nil
+			newKey := storage.KeyFromUser(k.Key(), sequence, uint8(k.Tag()))
+			sequence++
+
+			return ms.Put(newKey, v) == nil
 		})
 	}
 
@@ -315,7 +325,12 @@ func NewKV(opts ...KVOption) KV {
 }
 
 func (kv *KVImpl) Close() {
+	if kv.closed {
+		return
+	}
+	log.Println("Closing...")
 	if kv.memtable != nil {
+		log.Println("write down memtable")
 		old := kv.newMemtable()
 		kv.writeSSTable(old)
 		kv.memtable = nil

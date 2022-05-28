@@ -30,12 +30,18 @@ func (ms MemStorage) Count() int {
 }
 
 func (ms MemStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
+	var user_key []byte
+
 	elem := ms.sl.Front()
 	for elem != nil {
-		if !f(elem.Key().(*storage.InternalKey), elem.Value.([]byte)) {
-			return
+		ikey := elem.Key().(*storage.InternalKey)
+		if bytes.Compare(user_key, ikey.Key()) != 0 {
+			if !f(ikey, elem.Value.([]byte)) {
+				return
+			}
 		}
 
+		user_key = ikey.Key()
 		elem = elem.Next()
 	}
 }

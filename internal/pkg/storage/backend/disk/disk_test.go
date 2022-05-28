@@ -202,3 +202,31 @@ func TestDiskStorage_Index(t *testing.T) {
 		}
 	})
 }
+
+func TestDiskStorage_Scan(t *testing.T) {
+	var segment = fmt.Sprintf("%s/segment", t.TempDir())
+
+	t.Run("batchput", func(t *testing.T) {
+		s := NewDiskStorage(storage.Options{
+			Args: map[string]interface{}{
+				SegmentNameOpt:          segment,
+				storage.SegmentOpenMode: storage.SegmentOpenModeRW,
+			}})
+
+		defer s.Close()
+
+		var sequence uint64 = 1
+		for i := 0; i < 40; i++ {
+			key := fmt.Sprintf("key%02d", i)
+
+			var tag uint8 = storage.TagValue
+			if i == 10 {
+				tag = storage.TagTombstone
+			}
+			ikey := storage.KeyFromUser([]byte(key), sequence, tag)
+			sequence++
+
+			s.Put(ikey, []byte(fmt.Sprintf("value%d", i)))
+		}
+	})
+}

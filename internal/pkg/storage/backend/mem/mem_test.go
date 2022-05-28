@@ -150,11 +150,9 @@ func TestMemStorage(t *testing.T) {
 		ms.Scan(func(k *storage.InternalKey, v []byte) bool {
 			if bytes.Compare(k.Key(), []byte("key32")) == 0 {
 				count++
-				if count == 2 && k.Tag() != storage.TagValue {
-					t.Fatalf("first key's tag should be TagValue")
-				}
-				if count == 1 && k.Tag() != storage.TagTombstone {
-					t.Fatalf("second key's tag should be TagTombstone: %s", k.ToString())
+
+				if k.Tag() != storage.TagTombstone {
+					log.Fatalln("should be a delete-record")
 				}
 			}
 			log.Printf("#%d: %s\t\t- %s\n", count, k.ToString(), string(v))
@@ -162,8 +160,8 @@ func TestMemStorage(t *testing.T) {
 			return true
 		})
 
-		if count != 2 {
-			t.Fatalf("del failed")
+		if count != 1 {
+			t.Fatalf("wrong #records for key")
 		}
 
 		ikey = storage.KeyFromUser([]byte("key32"), seq, storage.TagTombstone)
@@ -203,19 +201,20 @@ func TestMemStorage(t *testing.T) {
 
 		var count = 0
 		ms.Scan(func(k *storage.InternalKey, v []byte) bool {
-			if bytes.Compare(k.Key(), []byte("key42")) == 0 {
+			if bytes.Compare(k.Key(), target) == 0 {
 				count++
 				if count == 1 && k.Tag() != storage.TagValue {
 					t.Fatalf("first key's tag should be TagValue")
-				}
-				if count == 2 && k.Tag() != storage.TagTombstone {
-					t.Fatalf("second key's tag should be TagTombstone: %s", k.ToString())
 				}
 			}
 			log.Printf("#%d: %s\t\t- %s\n", count, k.ToString(), string(v))
 
 			return true
 		})
+
+		if count != 1 {
+			t.Fatalf("wrong #records for key")
+		}
 
 		ikey = storage.KeyFromUser(target, seq, storage.TagValue)
 		val, err = ms.Get(ikey)

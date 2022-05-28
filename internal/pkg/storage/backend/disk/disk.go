@@ -2,6 +2,7 @@ package disk
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"github.com/huandu/skiplist"
 	"github.com/sonald/skv/internal/pkg/storage"
@@ -203,8 +204,9 @@ func (ds *DiskStorage) Count() int {
 func (ds *DiskStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 	ds.r.Seek(0, io.SeekStart)
 	br := bufio.NewReader(ds.r)
-	for {
 
+	var user_key []byte
+	for {
 		key, err := storage.ReadInternalKey(br)
 		if err == io.EOF {
 			break
@@ -215,8 +217,12 @@ func (ds *DiskStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 			break
 		}
 
-		if !f(key, val) {
-			break
+		if bytes.Compare(user_key, key.Key()) != 0 {
+			if !f(key, val) {
+				break
+			}
 		}
+
+		user_key = key.Key()
 	}
 }

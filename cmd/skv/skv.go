@@ -13,7 +13,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -40,32 +42,69 @@ var rootCmd = &cobra.Command{
 		port := viper.GetString(kSkvPort)
 
 		fmt.Printf("listening on %s\n", fmt.Sprintf("%s:%s", host, port))
-		//listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", host, port))
-		var ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)
-		defer cancel()
 
-		lc := net.ListenConfig{}
-		listener, err := lc.Listen(ctx, "tcp", fmt.Sprintf("%s:%s", host, port))
-		if err != nil {
-			log.Fatalln(err.Error())
+		var grpcServer *grpc.Server
+		var db rpc.SKVServer
+
+		sigchan := make(chan os.Signal, 1)
+		signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
+
+		closed := make(chan struct{})
+
+		go func() {
+			var ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)
+			defer cancel()
+
+			lc := net.ListenConfig{}
+			listener, err := lc.Listen(ctx, "tcp", fmt.Sprintf("%s:%s", host, port))
+			if err != nil {
+				log.Fatalln(err.Error())
+			}
+
+			var opts []grpc.ServerOption
+			grpcServer = grpc.NewServer(opts...)
+
+			var skopts = []kv.KVOption{
+				kv.WithDebug(viper.GetBool(kSkvDebug)),
+				kv.WithRoot(viper.GetString(kSkvRoot)),
+				kv.WithDumpPolicy(viper.GetInt(kSkvDumpPolicy)),
+				kv.WithDumpCountThreshold(viper.GetInt(kSkvCountThreshold)),
+				kv.WithDumpSizeThreshold(viper.GetInt(kSkvSizeThreshold)),
+			}
+			db = NewSKVServer(skopts...)
+			defer db.(*SKVServerImpl).Shutdown()
+
+			rpc.RegisterSKVServer(grpcServer, db)
+			if err := grpcServer.Serve(listener); err != nil {
+				if err != net.ErrClosed {
+					log.Printf("err: %s\n", err.Error())
+				}
+			}
+
+			log.Printf("grpc server quit\n")
+			close(closed)
+		}()
+
+		select {
+		case <-sigchan:
+			log.Printf("interrupted\n")
+			break
+		case <-closed:
+			log.Printf("shutdown\n")
+			break
 		}
 
-		var opts []grpc.ServerOption
-		s := grpc.NewServer(opts...)
-
-		var skopts = []kv.KVOption{
-			kv.WithDebug(viper.GetBool(kSkvDebug)),
-			kv.WithRoot(viper.GetString(kSkvRoot)),
-			kv.WithDumpPolicy(viper.GetInt(kSkvDumpPolicy)),
-			kv.WithDumpCountThreshold(viper.GetInt(kSkvCountThreshold)),
-			kv.WithDumpSizeThreshold(viper.GetInt(kSkvSizeThreshold)),
+		if db != nil {
+			db.(*SKVServerImpl).Shutdown()
 		}
-		db := NewSKVServer(skopts...)
-		defer db.(*SKVServerImpl).Shutdown()
 
-		rpc.RegisterSKVServer(s, db)
-		if err := s.Serve(listener); err != nil {
-			log.Printf("err: %s\n", err.Error())
+		if grpcServer != nil {
+			grpcServer.GracefulStop()
+		}
+
+		select {
+		case <-closed:
+			break
 		}
 	},
 }
