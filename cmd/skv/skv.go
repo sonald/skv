@@ -25,9 +25,17 @@ const (
 	kSkvPort           = "skv.port"
 	kSkvRoot           = "skv.root"
 	kSkvDumpPolicy     = "skv.dumpPolicy"
-	kSkvCountThreshold = "skv.countThreshold"
-	kSkvSizeThreshold  = "skv.sizeThreshold"
+	kSkvCountThreshold = "skv.threshold.count"
+	kSkvSizeThreshold  = "skv.threshold.size"
 	kSkvConfig         = "skv.config"
+)
+
+const (
+	kRaftBind             = "raft.bind"
+	kRaftServerID         = "raft.id"
+	kRaftStorageRoot      = "raft.storage"
+	kRaftBootstrap        = "raft.bootstrap"
+	kRaftBootstrapAddress = "raft.bootstrapAddress"
 )
 
 var rootCmd = &cobra.Command{
@@ -44,7 +52,7 @@ var rootCmd = &cobra.Command{
 		fmt.Printf("listening on %s\n", fmt.Sprintf("%s:%s", host, port))
 
 		var grpcServer *grpc.Server
-		var db rpc.SKVServer
+		var db *SKVServerImpl
 
 		sigchan := make(chan os.Signal, 1)
 		signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
@@ -64,17 +72,45 @@ var rootCmd = &cobra.Command{
 			var opts []grpc.ServerOption
 			grpcServer = grpc.NewServer(opts...)
 
-			var skopts = []kv.KVOption{
+			var kvOpts = []kv.KVOption{
 				kv.WithDebug(viper.GetBool(kSkvDebug)),
 				kv.WithRoot(viper.GetString(kSkvRoot)),
 				kv.WithDumpPolicy(viper.GetInt(kSkvDumpPolicy)),
 				kv.WithDumpCountThreshold(viper.GetInt(kSkvCountThreshold)),
 				kv.WithDumpSizeThreshold(viper.GetInt(kSkvSizeThreshold)),
 			}
-			db = NewSKVServer(skopts...)
-			defer db.(*SKVServerImpl).Shutdown()
+
+			var serverId = viper.GetString(kRaftServerID)
+			if len(serverId) == 0 {
+				serverId = viper.GetString(kRaftBind)
+			}
+
+			var raftStorage = viper.GetString(kRaftStorageRoot)
+			if len(raftStorage) == 0 {
+				raftStorage = fmt.Sprintf("%s/raft", viper.GetString(kSkvRoot))
+			}
+
+			var bootstrap = viper.GetBool(kRaftBootstrap)
+
+			var ndopts = []NodeOption{
+				WithBind(viper.GetString(kRaftBind)),
+				WithID(serverId),
+				WithStorageRoot(raftStorage),
+				WithBootstrap(viper.GetBool(kRaftBootstrap)),
+			}
+			if !bootstrap {
+				if len(viper.GetString(kRaftBootstrapAddress)) == 0 {
+					log.Fatalln("non-bootstrap node needs specify leader's address")
+				}
+				ndopts = append(ndopts, WithBootstrapAddress(viper.GetString(kRaftBootstrapAddress)))
+			}
+
+			db = NewSKVServer(kvOpts, ndopts)
+			defer db.Shutdown()
 
 			rpc.RegisterSKVServer(grpcServer, db)
+			rpc.RegisterPeerServer(grpcServer, db)
+
 			if err := grpcServer.Serve(listener); err != nil {
 				if err != net.ErrClosed {
 					log.Printf("err: %s\n", err.Error())
@@ -95,7 +131,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if db != nil {
-			db.(*SKVServerImpl).Shutdown()
+			db.Shutdown()
 		}
 
 		if grpcServer != nil {
@@ -122,7 +158,6 @@ var statusCmd = &cobra.Command{
 		fmt.Println("status ok")
 		if details {
 			//TODO: get statistics
-			viper.Debug()
 		}
 	},
 }
@@ -131,6 +166,7 @@ var (
 	cfg         string
 	storageRoot string
 	coreSets    = flag.NewFlagSet("core", flag.ContinueOnError)
+	raftSets    = flag.NewFlagSet("raft", flag.ContinueOnError)
 )
 
 func initConfig() {
@@ -149,12 +185,14 @@ func initConfig() {
 	viper.BindEnv(kSkvHost, "host")
 	viper.BindEnv(kSkvPort, "port")
 	viper.BindPFlags(coreSets)
+	viper.BindPFlags(raftSets)
 	viper.SetDefault(kSkvPort, "9527")
+	viper.SetDefault(kRaftBind, ":9528")
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("read config failed: %s\n", err)
+	} else {
+		fmt.Printf("load config %s\n", viper.ConfigFileUsed())
 	}
-
-	fmt.Printf("load config %s\n", viper.ConfigFileUsed())
 }
 
 func init() {
@@ -169,8 +207,15 @@ func init() {
 	coreSets.IntP(kSkvSizeThreshold, "S", storage.Megabyte, "memtable size threshold")
 	coreSets.IntP(kSkvCountThreshold, "C", 1024, "memtable key count threshold")
 
+	raftSets.String(kRaftBootstrapAddress, "", "bootstrap node's address")
+	raftSets.BoolP(kRaftBootstrap, "B", false, "this is bootstrap node")
+	raftSets.String(kRaftBind, "", "raft bind address")
+	raftSets.String(kRaftServerID, "", "raft node id, if empty, use bind address")
+	raftSets.String(kRaftStorageRoot, "", "raft storage root, if empty, use skv root")
+
 	rootCmd.Flags().SortFlags = true
 	rootCmd.Flags().AddFlagSet(coreSets)
+	rootCmd.Flags().AddFlagSet(raftSets)
 
 	rootCmd.AddCommand(statusCmd)
 

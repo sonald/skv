@@ -365,6 +365,107 @@ func (x *KeyValuePair) GetValue() []byte {
 	return nil
 }
 
+type PeerRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ServerID  string `protobuf:"bytes,1,opt,name=serverID,proto3" json:"serverID,omitempty"`
+	Address   string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	PrevIndex uint64 `protobuf:"varint,3,opt,name=prevIndex,proto3" json:"prevIndex,omitempty"`
+}
+
+func (x *PeerRequest) Reset() {
+	*x = PeerRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_pkg_rpc_service_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PeerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerRequest) ProtoMessage() {}
+
+func (x *PeerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_pkg_rpc_service_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerRequest.ProtoReflect.Descriptor instead.
+func (*PeerRequest) Descriptor() ([]byte, []int) {
+	return file_internal_pkg_rpc_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PeerRequest) GetServerID() string {
+	if x != nil {
+		return x.ServerID
+	}
+	return ""
+}
+
+func (x *PeerRequest) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *PeerRequest) GetPrevIndex() uint64 {
+	if x != nil {
+		return x.PrevIndex
+	}
+	return 0
+}
+
+type PeerReply struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *PeerReply) Reset() {
+	*x = PeerReply{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_pkg_rpc_service_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PeerReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerReply) ProtoMessage() {}
+
+func (x *PeerReply) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_pkg_rpc_service_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerReply.ProtoReflect.Descriptor instead.
+func (*PeerReply) Descriptor() ([]byte, []int) {
+	return file_internal_pkg_rpc_service_proto_rawDescGZIP(), []int{8}
+}
+
 var File_internal_pkg_rpc_service_proto protoreflect.FileDescriptor
 
 var file_internal_pkg_rpc_service_proto_rawDesc = []byte{
@@ -388,7 +489,14 @@ var file_internal_pkg_rpc_service_proto_rawDesc = []byte{
 	0x56, 0x61, 0x6c, 0x75, 0x65, 0x50, 0x61, 0x69, 0x72, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76,
 	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75,
-	0x65, 0x32, 0xb2, 0x01, 0x0a, 0x03, 0x53, 0x4b, 0x56, 0x12, 0x27, 0x0a, 0x03, 0x47, 0x65, 0x74,
+	0x65, 0x22, 0x61, 0x0a, 0x0b, 0x50, 0x65, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x12, 0x1a, 0x0a, 0x08, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x08, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x49, 0x44, 0x12, 0x18, 0x0a, 0x07,
+	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61,
+	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x1c, 0x0a, 0x09, 0x70, 0x72, 0x65, 0x76, 0x49, 0x6e,
+	0x64, 0x65, 0x78, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x65, 0x76, 0x49,
+	0x6e, 0x64, 0x65, 0x78, 0x22, 0x0b, 0x0a, 0x09, 0x50, 0x65, 0x65, 0x72, 0x52, 0x65, 0x70, 0x6c,
+	0x79, 0x32, 0xb2, 0x01, 0x0a, 0x03, 0x53, 0x4b, 0x56, 0x12, 0x27, 0x0a, 0x03, 0x47, 0x65, 0x74,
 	0x12, 0x0f, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
 	0x74, 0x1a, 0x0d, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x65, 0x70, 0x6c, 0x79,
 	0x22, 0x00, 0x12, 0x27, 0x0a, 0x03, 0x44, 0x65, 0x6c, 0x12, 0x0f, 0x2e, 0x72, 0x70, 0x63, 0x2e,
@@ -399,7 +507,13 @@ var file_internal_pkg_rpc_service_proto_rawDesc = []byte{
 	0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x12, 0x2e, 0x0a, 0x04, 0x53, 0x63, 0x61, 0x6e, 0x12, 0x0f,
 	0x2e, 0x72, 0x70, 0x63, 0x2e, 0x53, 0x63, 0x61, 0x6e, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x1a,
 	0x11, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x4b, 0x65, 0x79, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x50, 0x61,
-	0x69, 0x72, 0x22, 0x00, 0x30, 0x01, 0x42, 0x1b, 0x5a, 0x19, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
+	0x69, 0x72, 0x22, 0x00, 0x30, 0x01, 0x32, 0x5e, 0x0a, 0x04, 0x50, 0x65, 0x65, 0x72, 0x12, 0x2a,
+	0x0a, 0x04, 0x4a, 0x6f, 0x69, 0x6e, 0x12, 0x10, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x50, 0x65, 0x65,
+	0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x50,
+	0x65, 0x65, 0x72, 0x52, 0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x12, 0x2a, 0x0a, 0x04, 0x51, 0x75,
+	0x69, 0x74, 0x12, 0x10, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x50, 0x65, 0x65, 0x72, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x72, 0x70, 0x63, 0x2e, 0x50, 0x65, 0x65, 0x72, 0x52,
+	0x65, 0x70, 0x6c, 0x79, 0x22, 0x00, 0x42, 0x1b, 0x5a, 0x19, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
 	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x6f, 0x6e, 0x61, 0x6c, 0x64, 0x2f, 0x73, 0x6b, 0x76, 0x2f,
 	0x72, 0x70, 0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
@@ -416,7 +530,7 @@ func file_internal_pkg_rpc_service_proto_rawDescGZIP() []byte {
 	return file_internal_pkg_rpc_service_proto_rawDescData
 }
 
-var file_internal_pkg_rpc_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_internal_pkg_rpc_service_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_internal_pkg_rpc_service_proto_goTypes = []interface{}{
 	(*GetRequest)(nil),   // 0: rpc.GetRequest
 	(*GetReply)(nil),     // 1: rpc.GetReply
@@ -425,18 +539,24 @@ var file_internal_pkg_rpc_service_proto_goTypes = []interface{}{
 	(*DelReply)(nil),     // 4: rpc.DelReply
 	(*ScanOption)(nil),   // 5: rpc.ScanOption
 	(*KeyValuePair)(nil), // 6: rpc.KeyValuePair
+	(*PeerRequest)(nil),  // 7: rpc.PeerRequest
+	(*PeerReply)(nil),    // 8: rpc.PeerReply
 }
 var file_internal_pkg_rpc_service_proto_depIdxs = []int32{
 	0, // 0: rpc.SKV.Get:input_type -> rpc.GetRequest
 	3, // 1: rpc.SKV.Del:input_type -> rpc.DelRequest
 	6, // 2: rpc.SKV.Put:input_type -> rpc.KeyValuePair
 	5, // 3: rpc.SKV.Scan:input_type -> rpc.ScanOption
-	1, // 4: rpc.SKV.Get:output_type -> rpc.GetReply
-	4, // 5: rpc.SKV.Del:output_type -> rpc.DelReply
-	2, // 6: rpc.SKV.Put:output_type -> rpc.PutReply
-	6, // 7: rpc.SKV.Scan:output_type -> rpc.KeyValuePair
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	7, // 4: rpc.Peer.Join:input_type -> rpc.PeerRequest
+	7, // 5: rpc.Peer.Quit:input_type -> rpc.PeerRequest
+	1, // 6: rpc.SKV.Get:output_type -> rpc.GetReply
+	4, // 7: rpc.SKV.Del:output_type -> rpc.DelReply
+	2, // 8: rpc.SKV.Put:output_type -> rpc.PutReply
+	6, // 9: rpc.SKV.Scan:output_type -> rpc.KeyValuePair
+	8, // 10: rpc.Peer.Join:output_type -> rpc.PeerReply
+	8, // 11: rpc.Peer.Quit:output_type -> rpc.PeerReply
+	6, // [6:12] is the sub-list for method output_type
+	0, // [0:6] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -532,6 +652,30 @@ func file_internal_pkg_rpc_service_proto_init() {
 				return nil
 			}
 		}
+		file_internal_pkg_rpc_service_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PeerRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_pkg_rpc_service_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PeerReply); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -539,9 +683,9 @@ func file_internal_pkg_rpc_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_internal_pkg_rpc_service_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_internal_pkg_rpc_service_proto_goTypes,
 		DependencyIndexes: file_internal_pkg_rpc_service_proto_depIdxs,

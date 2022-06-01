@@ -39,3 +39,18 @@ message KeyValuePair {
   string key = 1;
   bytes value = 2;
 }
+
+
+service Peer {
+  rpc Join(PeerRequest) returns (PeerReply) {}
+  rpc  Quit(PeerRequest) returns (PeerReply) {}
+}
+
+message PeerRequest {
+  string serverID = 1;
+  string address = 2;
+  uint64 prevIndex = 3;
+}
+
+message PeerReply {
+}

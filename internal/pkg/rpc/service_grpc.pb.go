@@ -239,3 +239,125 @@ var SKV_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "internal/pkg/rpc/service.proto",
 }
+
+// PeerClient is the client API for Peer service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type PeerClient interface {
+	Join(ctx context.Context, in *PeerRequest, opts ...grpc.CallOption) (*PeerReply, error)
+	Quit(ctx context.Context, in *PeerRequest, opts ...grpc.CallOption) (*PeerReply, error)
+}
+
+type peerClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPeerClient(cc grpc.ClientConnInterface) PeerClient {
+	return &peerClient{cc}
+}
+
+func (c *peerClient) Join(ctx context.Context, in *PeerRequest, opts ...grpc.CallOption) (*PeerReply, error) {
+	out := new(PeerReply)
+	err := c.cc.Invoke(ctx, "/rpc.Peer/Join", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *peerClient) Quit(ctx context.Context, in *PeerRequest, opts ...grpc.CallOption) (*PeerReply, error) {
+	out := new(PeerReply)
+	err := c.cc.Invoke(ctx, "/rpc.Peer/Quit", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PeerServer is the server API for Peer service.
+// All implementations must embed UnimplementedPeerServer
+// for forward compatibility
+type PeerServer interface {
+	Join(context.Context, *PeerRequest) (*PeerReply, error)
+	Quit(context.Context, *PeerRequest) (*PeerReply, error)
+	mustEmbedUnimplementedPeerServer()
+}
+
+// UnimplementedPeerServer must be embedded to have forward compatible implementations.
+type UnimplementedPeerServer struct {
+}
+
+func (UnimplementedPeerServer) Join(context.Context, *PeerRequest) (*PeerReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Join not implemented")
+}
+func (UnimplementedPeerServer) Quit(context.Context, *PeerRequest) (*PeerReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Quit not implemented")
+}
+func (UnimplementedPeerServer) mustEmbedUnimplementedPeerServer() {}
+
+// UnsafePeerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PeerServer will
+// result in compilation errors.
+type UnsafePeerServer interface {
+	mustEmbedUnimplementedPeerServer()
+}
+
+func RegisterPeerServer(s grpc.ServiceRegistrar, srv PeerServer) {
+	s.RegisterService(&Peer_ServiceDesc, srv)
+}
+
+func _Peer_Join_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PeerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PeerServer).Join(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.Peer/Join",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PeerServer).Join(ctx, req.(*PeerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Peer_Quit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PeerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PeerServer).Quit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.Peer/Quit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PeerServer).Quit(ctx, req.(*PeerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Peer_ServiceDesc is the grpc.ServiceDesc for Peer service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Peer_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "rpc.Peer",
+	HandlerType: (*PeerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Join",
+			Handler:    _Peer_Join_Handler,
+		},
+		{
+			MethodName: "Quit",
+			Handler:    _Peer_Quit_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "internal/pkg/rpc/service.proto",
+}

@@ -1,0 +1,15 @@
+raft:
+  bind: 127.0.0.1:7528
+  bootstrap: false
+  bootstrapaddress: 127.0.0.1:9527
+  id: server-3
+  storage: ""
+skv:
+  threshold:
+    count: 1024
+    size: 1048576
+  debug: true
+  dumppolicy: 1
+  host: localhost
+  port: 7527
+  root: /tmp/skv3

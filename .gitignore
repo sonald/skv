@@ -1,4 +1,6 @@
 .vim-undo
+out
+tmp
 
 # Binaries for programs and plugins
 *.exe

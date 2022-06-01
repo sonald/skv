@@ -14,17 +14,30 @@ import (
 
 type SKVServerImpl struct {
 	rpc.UnimplementedSKVServer
-	db kv.KV
+	rpc.UnimplementedPeerServer
+	node *KVNode
+}
+
+func (skv *SKVServerImpl) Join(ctx context.Context, req *rpc.PeerRequest) (*rpc.PeerReply, error) {
+	log.Printf("Join: id:%s, bind:%s, prevIndex: %v\n", req.GetServerID(), req.GetAddress(), req.GetPrevIndex())
+	skv.node.AddNode(req.GetServerID(), req.GetAddress(), req.GetPrevIndex())
+	return &rpc.PeerReply{}, nil
+}
+
+func (skv *SKVServerImpl) Quit(ctx context.Context, req *rpc.PeerRequest) (*rpc.PeerReply, error) {
+	log.Printf("Quit: id:%s, bind:%s, prevIndex: %v\n", req.GetServerID(), req.GetAddress(), req.GetPrevIndex())
+	skv.node.RemoveNode(req.GetServerID(), req.GetAddress(), req.GetPrevIndex())
+	return &rpc.PeerReply{}, nil
 }
 
 func (skv *SKVServerImpl) Del(ctx context.Context, req *rpc.DelRequest) (*rpc.DelReply, error) {
-	err := skv.db.Del(req.GetKey())
+	err := skv.node.Del(req.GetKey())
 	log.Printf("Del: err %v\n", err)
 	return &rpc.DelReply{Error: 0}, nil
 }
 
 func (skv *SKVServerImpl) Get(ctx context.Context, req *rpc.GetRequest) (*rpc.GetReply, error) {
-	val, err := skv.db.Get(req.GetKey())
+	val, err := skv.node.db.Get(req.GetKey())
 	if err == storage.ErrKeyDeleted {
 		return &rpc.GetReply{Value: nil}, nil
 	}
@@ -33,13 +46,13 @@ func (skv *SKVServerImpl) Get(ctx context.Context, req *rpc.GetRequest) (*rpc.Ge
 
 func (skv *SKVServerImpl) Put(ctx context.Context, req *rpc.KeyValuePair) (*rpc.PutReply, error) {
 	log.Printf("Put(%s, %s)", req.Key, req.Value)
-	err := skv.db.Put(req.GetKey(), req.GetValue())
+	err := skv.node.Put(req.GetKey(), req.GetValue())
 	return &rpc.PutReply{Error: 0}, err
 }
 
 func (skv *SKVServerImpl) Scan(opts *rpc.ScanOption, stream rpc.SKV_ScanServer) error {
 	var err error
-	skv.db.Scan(func(k string, v []byte) bool {
+	skv.node.db.Scan(func(k string, v []byte) bool {
 		var p = &rpc.KeyValuePair{
 			Key:   string(k),
 			Value: v,
@@ -57,12 +70,16 @@ func (skv *SKVServerImpl) Scan(opts *rpc.ScanOption, stream rpc.SKV_ScanServer) 
 	return nil
 }
 
-func NewSKVServer(opts ...kv.KVOption) rpc.SKVServer {
+func NewSKVServer(opts []kv.KVOption, ndopts []NodeOption) *SKVServerImpl {
+
 	return &SKVServerImpl{
-		db: kv.NewKV(opts...),
+		node: NewKVNode(kv.NewKV(opts...), ndopts...),
 	}
 }
 
 func (skv *SKVServerImpl) Shutdown() {
-	skv.db.Close()
+
+	skv.node.Shutdonw()
+	skv.node.db.Close()
+
 }
