@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/sonald/skv/internal/pkg/kv"
 	rpc "github.com/sonald/skv/internal/pkg/rpc"
 	"google.golang.org/grpc"
 	"io"
@@ -26,6 +27,30 @@ func put(cli rpc.SKVClient, key string, value []byte) {
 	}
 	reply.GetError()
 	//log.Printf("reply: %d\n", reply.GetError())
+}
+
+func getMeta(cli rpc.SKVClient) []kv.ServerConfig {
+	var ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req := &rpc.GetMetaRequest{Condition: ""}
+	reply, err := cli.GetMeta(ctx, req)
+	if err != nil {
+		log.Printf("rely: %v\n", err.Error())
+		return nil
+	}
+
+	var cfg []kv.ServerConfig
+	for _, s := range reply.Servers {
+		cfg = append(cfg, kv.ServerConfig{
+			Address:  s.Address,
+			ServerID: s.ServerID,
+			Leader:   s.Leader,
+			State:    s.State,
+		})
+	}
+
+	return cfg
 }
 
 func get(cli rpc.SKVClient, key string) []byte {

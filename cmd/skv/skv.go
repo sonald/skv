@@ -33,7 +33,6 @@ const (
 const (
 	kRaftBind             = "raft.bind"
 	kRaftServerID         = "raft.id"
-	kRaftStorageRoot      = "raft.storage"
 	kRaftBootstrap        = "raft.bootstrap"
 	kRaftBootstrapAddress = "raft.bootstrapAddress"
 )
@@ -85,10 +84,7 @@ var rootCmd = &cobra.Command{
 				serverId = viper.GetString(kRaftBind)
 			}
 
-			var raftStorage = viper.GetString(kRaftStorageRoot)
-			if len(raftStorage) == 0 {
-				raftStorage = fmt.Sprintf("%s/raft", viper.GetString(kSkvRoot))
-			}
+			var raftStorage = fmt.Sprintf("%s/raft", viper.GetString(kSkvRoot))
 
 			var bootstrap = viper.GetBool(kRaftBootstrap)
 
@@ -211,7 +207,6 @@ func init() {
 	raftSets.BoolP(kRaftBootstrap, "B", false, "this is bootstrap node")
 	raftSets.String(kRaftBind, "", "raft bind address")
 	raftSets.String(kRaftServerID, "", "raft node id, if empty, use bind address")
-	raftSets.String(kRaftStorageRoot, "", "raft storage root, if empty, use skv root")
 
 	rootCmd.Flags().SortFlags = true
 	rootCmd.Flags().AddFlagSet(coreSets)

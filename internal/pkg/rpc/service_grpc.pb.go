@@ -26,6 +26,7 @@ type SKVClient interface {
 	Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelReply, error)
 	Put(ctx context.Context, in *KeyValuePair, opts ...grpc.CallOption) (*PutReply, error)
 	Scan(ctx context.Context, in *ScanOption, opts ...grpc.CallOption) (SKV_ScanClient, error)
+	GetMeta(ctx context.Context, in *GetMetaRequest, opts ...grpc.CallOption) (*GetMetaReply, error)
 }
 
 type sKVClient struct {
@@ -95,6 +96,15 @@ func (x *sKVScanClient) Recv() (*KeyValuePair, error) {
 	return m, nil
 }
 
+func (c *sKVClient) GetMeta(ctx context.Context, in *GetMetaRequest, opts ...grpc.CallOption) (*GetMetaReply, error) {
+	out := new(GetMetaReply)
+	err := c.cc.Invoke(ctx, "/rpc.SKV/GetMeta", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SKVServer is the server API for SKV service.
 // All implementations must embed UnimplementedSKVServer
 // for forward compatibility
@@ -103,6 +113,7 @@ type SKVServer interface {
 	Del(context.Context, *DelRequest) (*DelReply, error)
 	Put(context.Context, *KeyValuePair) (*PutReply, error)
 	Scan(*ScanOption, SKV_ScanServer) error
+	GetMeta(context.Context, *GetMetaRequest) (*GetMetaReply, error)
 	mustEmbedUnimplementedSKVServer()
 }
 
@@ -121,6 +132,9 @@ func (UnimplementedSKVServer) Put(context.Context, *KeyValuePair) (*PutReply, er
 }
 func (UnimplementedSKVServer) Scan(*ScanOption, SKV_ScanServer) error {
 	return status.Errorf(codes.Unimplemented, "method Scan not implemented")
+}
+func (UnimplementedSKVServer) GetMeta(context.Context, *GetMetaRequest) (*GetMetaReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMeta not implemented")
 }
 func (UnimplementedSKVServer) mustEmbedUnimplementedSKVServer() {}
 
@@ -210,6 +224,24 @@ func (x *sKVScanServer) Send(m *KeyValuePair) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _SKV_GetMeta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMetaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SKVServer).GetMeta(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.SKV/GetMeta",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SKVServer).GetMeta(ctx, req.(*GetMetaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SKV_ServiceDesc is the grpc.ServiceDesc for SKV service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -228,6 +260,10 @@ var SKV_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Put",
 			Handler:    _SKV_Put_Handler,
+		},
+		{
+			MethodName: "GetMeta",
+			Handler:    _SKV_GetMeta_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

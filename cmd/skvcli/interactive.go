@@ -14,6 +14,7 @@ var completer = readline.NewPrefixCompleter(
 	readline.PcItem("help"),
 	readline.PcItem("list"),
 	readline.PcItem("get"),
+	readline.PcItem("getMeta"),
 	readline.PcItem("put"),
 	readline.PcItem("test"),
 	readline.PcItem("del"),
@@ -70,6 +71,10 @@ func interactive(cli rpc.SKVClient) {
 			key := ln[:i]
 			value := strings.TrimSpace(ln[i:])
 			put(cli, key, []byte(value))
+
+		case strings.HasPrefix(ln, "getMeta"):
+			l := getMeta(cli)
+			fmt.Printf("%+v\n", l)
 
 		case strings.HasPrefix(ln, "get"):
 			val := get(cli, strings.TrimSpace(ln[3:]))

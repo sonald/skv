@@ -20,6 +20,12 @@ import (
 
 type NodeOption func(kv *KVNode)
 
+func WithStorageRoot(path string) NodeOption {
+	return func(kv *KVNode) {
+		kv.storageRoot = path
+	}
+}
+
 func WithBootstrap(b bool) NodeOption {
 	return func(kv *KVNode) {
 		kv.bootstrap = b
@@ -29,12 +35,6 @@ func WithBootstrap(b bool) NodeOption {
 func WithBootstrapAddress(addr string) NodeOption {
 	return func(kv *KVNode) {
 		kv.bootstrapAddress = addr
-	}
-}
-
-func WithStorageRoot(path string) NodeOption {
-	return func(kv *KVNode) {
-		kv.storageRoot = path
 	}
 }
 
@@ -159,7 +159,6 @@ type KVNode struct {
 	// bootstrapped node's address
 	bootstrapAddress string
 
-	leader     bool
 	shutdown   chan struct{}
 	raftNotify chan bool
 }
@@ -199,8 +198,8 @@ func seqApply(cbs ...func() error) {
 	}
 }
 
-// connect to leader's grpc listen address
-func (nd *KVNode) JoinQuorum() {
+//Join(ctx context.Context, in *PeerRequest, opts ...grpc.CallOption) (*PeerReply, error)
+func (nd *KVNode) execQuorumOperation(join bool) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	opts = append(opts, grpc.WithBlock())
@@ -220,42 +219,18 @@ func (nd *KVNode) JoinQuorum() {
 	req := &rpc.PeerRequest{
 		ServerID:  nd.serverId,
 		Address:   nd.bind,
-		PrevIndex: nd.raft.LastIndex(),
+		PrevIndex: 0,
+		//PrevIndex: nd.raft.LastIndex(),
 	}
-	_, err = cli.Join(context.Background(), req, grpc.EmptyCallOption{})
+	if join {
+		_, err = cli.Join(context.Background(), req, grpc.EmptyCallOption{})
+	} else {
+		_, err = cli.Quit(context.Background(), req, grpc.EmptyCallOption{})
+	}
 	if err != nil {
 		log.Fatalf("Join: %v\n", err)
 	}
 	log.Printf("Join: done\n")
-}
-
-func (nd *KVNode) QuitQuorum() {
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	opts = append(opts, grpc.WithBlock())
-
-	var ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, nd.bootstrapAddress, opts...)
-	if err != nil {
-		log.Fatalf("dial fail: %s\n", err.Error())
-	}
-	defer conn.Close()
-
-	log.Printf("send quit request to %v\n", nd.bootstrapAddress)
-
-	cli := rpc.NewPeerClient(conn)
-	req := &rpc.PeerRequest{
-		ServerID:  nd.serverId,
-		Address:   nd.bind,
-		PrevIndex: nd.raft.LastIndex(),
-	}
-	_, err = cli.Quit(context.Background(), req, grpc.EmptyCallOption{})
-	if err != nil {
-		log.Fatalf("Quit: %v\n", err)
-	}
-	log.Printf("Quit: done\n")
 }
 
 func NewKVNode(kv kv.KV, opts ...NodeOption) *KVNode {
@@ -329,8 +304,6 @@ func NewKVNode(kv kv.KV, opts ...NodeOption) *KVNode {
 		for {
 			select {
 			case leader := <-nd.raftNotify:
-				nd.leader = leader
-				log.Printf("**************** leader change (%v)\n", nd.raft.Leader())
 				if leader {
 					a, i := nd.raft.LeaderWithID()
 					log.Printf("leader changed to (%v, %v)\n", i, a)
@@ -353,14 +326,15 @@ func NewKVNode(kv kv.KV, opts ...NodeOption) *KVNode {
 		}
 		nd.raft.BootstrapCluster(configuration)
 	} else {
-		nd.JoinQuorum()
+		nd.execQuorumOperation(true)
 	}
 
+	log.Printf("%+v\n", nd.raft.Stats())
 	return nd
 }
 
 func (nd *KVNode) Put(key string, value []byte) error {
-	if !nd.leader {
+	if nd.raft.State() != raft.Leader {
 		return fmt.Errorf("Del: current node is not leader\n")
 	}
 
@@ -374,7 +348,7 @@ func (nd *KVNode) Put(key string, value []byte) error {
 }
 
 func (nd *KVNode) Del(key string) error {
-	if !nd.leader {
+	if nd.raft.State() != raft.Leader {
 		return fmt.Errorf("Del: current node is not leader\n")
 	}
 
@@ -387,8 +361,32 @@ func (nd *KVNode) Del(key string) error {
 	return nil
 }
 
+func (nd *KVNode) GetMeta() ([]kv.ServerConfig, error) {
+	log.Printf("%+v\n", nd.raft.Stats())
+
+	f := nd.raft.GetConfiguration()
+	if err := f.Error(); err != nil {
+		return nil, err
+	}
+
+	_, leaderID := nd.raft.LeaderWithID()
+
+	var data []kv.ServerConfig
+	for _, s := range f.Configuration().Servers {
+		data = append(data, kv.ServerConfig{
+			Address:  string(s.Address),
+			ServerID: string(s.ID),
+			Leader:   leaderID == s.ID,
+			State:    s.Suffrage.String(),
+		})
+	}
+
+	return data, nil
+}
+
+// Can only the leader do this
 func (nd *KVNode) AddNode(serverID, bind string, prevIndex uint64) {
-	if !nd.leader {
+	if nd.raft.State() != raft.Leader {
 		log.Printf("AddNote: current node is not leader\n")
 		return
 	}
@@ -401,8 +399,9 @@ func (nd *KVNode) AddNode(serverID, bind string, prevIndex uint64) {
 
 }
 
+// Can only the leader do this
 func (nd *KVNode) RemoveNode(serverID, bind string, prevIndex uint64) {
-	if !nd.leader {
+	if nd.raft.State() != raft.Leader {
 		log.Printf("RemoveNote: current node is not leader\n")
 		return
 	}
@@ -413,16 +412,27 @@ func (nd *KVNode) RemoveNode(serverID, bind string, prevIndex uint64) {
 	} else {
 		log.Printf("RemoveNode(%s, %s) done\n", nd.raft.String(), nd.bind)
 	}
-
 }
 
 func (nd *KVNode) Shutdonw() {
-	//TODO: quit quorum
-	log.Printf("shutdown (%s, %s)\n", nd.serverId, nd.bind)
-	nd.QuitQuorum()
-	close(nd.shutdown)
-	f := nd.raft.Shutdown()
+	log.Printf("shutting down (%s, %s)\n", nd.serverId, nd.bind)
+	nd.execQuorumOperation(false)
+
+	// call this to pull lastest configuration to make sure node removed
+	f := nd.raft.GetConfiguration()
 	if err := f.Error(); err != nil {
+		log.Fatalf("get configuration failed: %v\n", err)
+	}
+
+	log.Println("live nodes are:")
+	for _, s := range f.Configuration().Servers {
+		log.Printf("%+v\n", s)
+	}
+
+	f2 := nd.raft.Shutdown()
+	if err := f2.Error(); err != nil {
 		log.Fatalf("raft shutdown failed: %v\n", err)
 	}
+
+	close(nd.shutdown)
 }

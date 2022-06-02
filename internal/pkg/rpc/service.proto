@@ -8,6 +8,7 @@ service SKV {
   rpc Del(DelRequest) returns (DelReply) {}
   rpc Put(KeyValuePair) returns (PutReply) {}
   rpc Scan(ScanOption) returns (stream KeyValuePair) {}
+  rpc GetMeta(GetMetaRequest) returns (GetMetaReply) {}
 }
 
 message GetRequest {
@@ -40,6 +41,19 @@ message KeyValuePair {
   bytes value = 2;
 }
 
+message GetMetaRequest {
+  string condition = 1;
+}
+
+message GetMetaReply { 
+  message Server {
+    string address = 1;
+    string serverID = 2;
+    bool leader = 3;
+    string state = 4;
+  }
+  repeated Server servers = 1;
+}
 
 service Peer {
   rpc Join(PeerRequest) returns (PeerReply) {}

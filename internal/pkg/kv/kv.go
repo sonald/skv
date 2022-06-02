@@ -13,3 +13,10 @@ type KV interface {
 	Close()
 	Stats()
 }
+
+type ServerConfig struct {
+	Address  string
+	ServerID string
+	Leader   bool
+	State    string
+}

@@ -70,6 +70,26 @@ func (skv *SKVServerImpl) Scan(opts *rpc.ScanOption, stream rpc.SKV_ScanServer) 
 	return nil
 }
 
+func (skv *SKVServerImpl) GetMeta(ctx context.Context, req *rpc.GetMetaRequest) (*rpc.GetMetaReply, error) {
+	var err error
+	data, err := skv.node.GetMeta()
+	if err != nil {
+		return &rpc.GetMetaReply{}, err
+	}
+
+	var servers []*rpc.GetMetaReply_Server
+	for _, s := range data {
+		servers = append(servers, &rpc.GetMetaReply_Server{
+			Address:  s.Address,
+			ServerID: s.ServerID,
+			Leader:   s.Leader,
+			State:    s.State,
+		})
+	}
+
+	return &rpc.GetMetaReply{Servers: servers}, nil
+}
+
 func NewSKVServer(opts []kv.KVOption, ndopts []NodeOption) *SKVServerImpl {
 
 	return &SKVServerImpl{

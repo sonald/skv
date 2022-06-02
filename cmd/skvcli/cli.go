@@ -13,6 +13,17 @@ import (
 	"time"
 )
 
+func runCommand(f func(rpc.SKVClient, []string)) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		host, _ := cmd.Flags().GetString("host")
+		port, _ := cmd.Flags().GetString("port")
+		cli, conn := startClient(host, port)
+		defer conn.Close()
+
+		f(cli, args)
+	}
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "skvcli",
 	Short: "simple kv store",
@@ -20,83 +31,53 @@ var rootCmd = &cobra.Command{
  and raft-based cluster support
 `,
 	Example: "skvcli put/get",
-	Run: func(cmd *cobra.Command, args []string) {
-		host, _ := cmd.Flags().GetString("host")
-		port, _ := cmd.Flags().GetString("port")
-
-		cli, conn := startClient(host, port)
-		defer conn.Close()
+	Run: runCommand(func(cli rpc.SKVClient, args []string) {
 		interactive(cli)
-	},
+	}),
 }
 
 var putCmd = &cobra.Command{
 	Use:   "put",
 	Short: "put value into skv",
 
-	Run: func(cmd *cobra.Command, args []string) {
-		host, _ := cmd.Flags().GetString("host")
-		port, _ := cmd.Flags().GetString("port")
-
-		log.Println(args)
+	Run: runCommand(func(cli rpc.SKVClient, args []string) {
 		if len(args) <= 1 {
-			fmt.Println("need arguments [key, value]")
+			fmt.Println("need arguments [key, value...]")
 			return
 		}
-		cli, conn := startClient(host, port)
-		defer conn.Close()
 
 		put(cli, args[0], []byte(strings.Join(args[1:], " ")))
-	},
+	}),
 }
 
 var getCmd = &cobra.Command{
 	Use:   "get",
 	Short: "get value from skv",
-
-	Run: func(cmd *cobra.Command, args []string) {
-		host, _ := cmd.Flags().GetString("host")
-		port, _ := cmd.Flags().GetString("port")
-		cli, conn := startClient(host, port)
-		defer conn.Close()
-
+	Run: runCommand(func(cli rpc.SKVClient, args []string) {
 		if len(args) == 0 {
 			return
 		}
 		fmt.Println(string(get(cli, args[0])))
-
-	},
+	}),
 }
 
 var delCmd = &cobra.Command{
 	Use:   "del",
 	Short: "del value from skv",
 
-	Run: func(cmd *cobra.Command, args []string) {
-		host, _ := cmd.Flags().GetString("host")
-		port, _ := cmd.Flags().GetString("port")
-		cli, conn := startClient(host, port)
-		defer conn.Close()
-
+	Run: runCommand(func(cli rpc.SKVClient, args []string) {
 		if len(args) == 0 {
 			return
 		}
 		fmt.Println(string(del(cli, args[0])))
-
-	},
+	}),
 }
 
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "list all key-value pairs from skv",
 
-	Run: func(cmd *cobra.Command, args []string) {
-		host, _ := cmd.Flags().GetString("host")
-		port, _ := cmd.Flags().GetString("port")
-
-		cli, conn := startClient(host, port)
-		defer conn.Close()
-
+	Run: runCommand(func(cli rpc.SKVClient, args []string) {
 		fmt.Println("scanning....")
 		var seq int
 		scan(cli, func(k string, v []byte) bool {
@@ -105,14 +86,25 @@ var listCmd = &cobra.Command{
 
 			return true
 		})
-	},
+	}),
+}
+
+var getMetaCmd = &cobra.Command{
+	Use:   "getMeta",
+	Short: "get servers from skv",
+	Run: runCommand(func(cli rpc.SKVClient, args []string) {
+		if len(args) == 0 {
+			return
+		}
+		fmt.Printf("%+v\n", getMeta(cli))
+	}),
 }
 
 func init() {
 	rootCmd.PersistentFlags().StringP("port", "p", "9527", "skv coordinator's port")
 	rootCmd.PersistentFlags().StringP("host", "H", "localhost", "listen host")
 
-	rootCmd.AddCommand(putCmd, getCmd, listCmd, delCmd)
+	rootCmd.AddCommand(putCmd, getCmd, listCmd, delCmd, getMetaCmd)
 }
 
 func main() {
