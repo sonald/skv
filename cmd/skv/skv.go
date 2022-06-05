@@ -44,7 +44,7 @@ var rootCmd = &cobra.Command{
  and raft-based cluster support
 `,
 	Example: "skv ",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		host := viper.GetString(kSkvHost)
 		port := viper.GetString(kSkvPort)
 
@@ -62,8 +62,9 @@ var rootCmd = &cobra.Command{
 			var ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)
 			defer cancel()
 
+			var rpcAddress = fmt.Sprintf("%s:%s", host, port)
 			lc := net.ListenConfig{}
-			listener, err := lc.Listen(ctx, "tcp", fmt.Sprintf("%s:%s", host, port))
+			listener, err := lc.Listen(ctx, "tcp", rpcAddress)
 			if err != nil {
 				log.Fatalln(err.Error())
 			}
@@ -89,7 +90,9 @@ var rootCmd = &cobra.Command{
 			var bootstrap = viper.GetBool(kRaftBootstrap)
 
 			var ndopts = []NodeOption{
+				WithDebug(viper.GetBool(kSkvDebug)),
 				WithBind(viper.GetString(kRaftBind)),
+				WithRpcAddress(rpcAddress),
 				WithID(serverId),
 				WithStorageRoot(raftStorage),
 				WithBootstrap(viper.GetBool(kRaftBootstrap)),
@@ -102,7 +105,6 @@ var rootCmd = &cobra.Command{
 			}
 
 			db = NewSKVServer(kvOpts, ndopts)
-			defer db.Shutdown()
 
 			rpc.RegisterSKVServer(grpcServer, db)
 			rpc.RegisterPeerServer(grpcServer, db)
@@ -126,18 +128,12 @@ var rootCmd = &cobra.Command{
 			break
 		}
 
-		if db != nil {
-			db.Shutdown()
-		}
-
+		db.Shutdown()
 		if grpcServer != nil {
 			grpcServer.GracefulStop()
 		}
 
-		select {
-		case <-closed:
-			break
-		}
+		<-closed
 	},
 }
 
@@ -145,7 +141,7 @@ var statusCmd = &cobra.Command{
 	Use:     "status",
 	Short:   "report status",
 	Example: "skv status",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		details, err := cmd.Flags().GetBool("verbose")
 		if err != nil {
 			return

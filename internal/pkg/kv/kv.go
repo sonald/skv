@@ -15,8 +15,9 @@ type KV interface {
 }
 
 type ServerConfig struct {
-	Address  string
-	ServerID string
-	Leader   bool
-	State    string
+	Address    string
+	ServerID   string
+	Leader     bool
+	State      string
+	RpcAddress string
 }

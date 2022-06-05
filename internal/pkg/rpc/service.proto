@@ -51,6 +51,7 @@ message GetMetaReply {
     string serverID = 2;
     bool leader = 3;
     string state = 4;
+    string rpcAddress = 5;
   }
   repeated Server servers = 1;
 }

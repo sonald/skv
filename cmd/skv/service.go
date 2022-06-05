@@ -80,10 +80,11 @@ func (skv *SKVServerImpl) GetMeta(ctx context.Context, req *rpc.GetMetaRequest) 
 	var servers []*rpc.GetMetaReply_Server
 	for _, s := range data {
 		servers = append(servers, &rpc.GetMetaReply_Server{
-			Address:  s.Address,
-			ServerID: s.ServerID,
-			Leader:   s.Leader,
-			State:    s.State,
+			Address:    s.Address,
+			ServerID:   s.ServerID,
+			Leader:     s.Leader,
+			State:      s.State,
+			RpcAddress: s.RpcAddress,
 		})
 	}
 
@@ -98,8 +99,5 @@ func NewSKVServer(opts []kv.KVOption, ndopts []NodeOption) *SKVServerImpl {
 }
 
 func (skv *SKVServerImpl) Shutdown() {
-
-	skv.node.Shutdonw()
-	skv.node.db.Close()
-
+	skv.node.Shutdown()
 }

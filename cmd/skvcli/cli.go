@@ -31,7 +31,7 @@ var rootCmd = &cobra.Command{
  and raft-based cluster support
 `,
 	Example: "skvcli put/get",
-	Run: runCommand(func(cli rpc.SKVClient, args []string) {
+	Run: runCommand(func(cli rpc.SKVClient, _ []string) {
 		interactive(cli)
 	}),
 }
@@ -77,7 +77,7 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "list all key-value pairs from skv",
 
-	Run: runCommand(func(cli rpc.SKVClient, args []string) {
+	Run: runCommand(func(cli rpc.SKVClient, _ []string) {
 		fmt.Println("scanning....")
 		var seq int
 		scan(cli, func(k string, v []byte) bool {
