@@ -176,7 +176,7 @@ type KVNode struct {
 	// bootstrapped node's rpcAddress
 	bootstrapAddress string
 
-    debug bool
+	debug bool
 
 	shutdown   chan struct{}
 	raftNotify chan bool
@@ -341,16 +341,16 @@ func NewKVNode(kv kv.KV, opts ...NodeOption) *KVNode {
 	cfg := raft.DefaultConfig()
 	cfg.LocalID = raft.ServerID(nd.serverId)
 	cfg.NotifyCh = nd.raftNotify
-    cfg.TrailingLogs = 16
-    cfg.SnapshotInterval = time.Second * 120
-    cfg.SnapshotThreshold = 1024
+	cfg.TrailingLogs = 16
+	cfg.SnapshotInterval = time.Second * 120
+	cfg.SnapshotThreshold = 1024
 
-    // for debugging purpose, we increment frequence of snapshotting
-    if nd.debug {
-        cfg.SnapshotInterval = time.Second * 10
-        cfg.SnapshotThreshold = 10
-        cfg.TrailingLogs = 20
-    }
+	// for debugging purpose, we increment frequence of snapshotting
+	if nd.debug {
+		cfg.SnapshotInterval = time.Second * 10
+		cfg.SnapshotThreshold = 10
+		cfg.TrailingLogs = 20
+	}
 
 	log.Printf("raft: bootstrap: %v, bind:%s, id:%s, root: %s, leader: %s\n", nd.bootstrap, nd.bind, nd.serverId,
 		nd.storageRoot, nd.bootstrapAddress)

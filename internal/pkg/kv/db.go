@@ -312,8 +312,7 @@ func NewKV(opts ...KVOption) KV {
 		log.Printf("%+v\n", kv)
 	}
 
-	var err error
-	err = os.MkdirAll(kv.root, 0755)
+	err := os.MkdirAll(kv.root, 0755)
 	if err != nil && !os.IsExist(err) {
 		log.Fatal(err)
 	}
