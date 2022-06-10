@@ -57,7 +57,7 @@ func get(cli rpc.SKVClient, key string) []byte {
 	var ctx, cancel = context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	req := &rpc.GetRequest{Key: key}
+	req := &rpc.GetRequest{Key: key, Level: rpc.ReadLevel_LinearRead}
 	reply, err := cli.Get(ctx, req)
 	if err != nil {
 		log.Printf("reply: %s\n", err.Error())

@@ -31,13 +31,12 @@ func (skv *SKVServerImpl) Quit(ctx context.Context, req *rpc.PeerRequest) (*rpc.
 }
 
 func (skv *SKVServerImpl) Del(ctx context.Context, req *rpc.DelRequest) (*rpc.DelReply, error) {
-	err := skv.node.Del(req.GetKey())
-	log.Printf("Del: err %v\n", err)
+	skv.node.Del(req.GetKey())
 	return &rpc.DelReply{Error: 0}, nil
 }
 
 func (skv *SKVServerImpl) Get(ctx context.Context, req *rpc.GetRequest) (*rpc.GetReply, error) {
-	val, err := skv.node.db.Get(req.GetKey())
+	val, err := skv.node.Get(req.GetKey(), req.Level)
 	if err == storage.ErrKeyDeleted {
 		return &rpc.GetReply{Value: nil}, nil
 	}

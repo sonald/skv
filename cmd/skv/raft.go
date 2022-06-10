@@ -485,6 +485,19 @@ func (nd *KVNode) Del(key string) error {
 	return nil
 }
 
+func (nd *KVNode) Get(key string, level rpc.ReadLevel) ([]byte, error) {
+	if level != rpc.ReadLevel_LinearRead || nd.raft.State() != raft.Leader {
+		return nil, fmt.Errorf("del: current node is not leader")
+	}
+
+	val, err := nd.db.Get(key)
+	if err != nil && err == storage.ErrNotFound {
+		return nil, nil
+	}
+
+	return val, nil
+}
+
 func (nd *KVNode) GetMeta() ([]kv.ServerConfig, error) {
 	log.Printf("%+v\n", nd.raft.Stats())
 

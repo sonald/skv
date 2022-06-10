@@ -11,8 +11,15 @@ service SKV {
   rpc GetMeta(GetMetaRequest) returns (GetMetaReply) {}
 }
 
+enum ReadLevel {
+    DefaultRead = 0;
+    LinearRead = 1;
+    StaleRead = 2;
+}
+
 message GetRequest {
   string key = 1;
+  ReadLevel level = 2;
 }
 
 message GetReply {
@@ -34,6 +41,7 @@ message DelReply {
 message ScanOption {
   int32 limits = 1;
   string prefix = 2;
+  ReadLevel level = 3;
 }
 
 message KeyValuePair {
