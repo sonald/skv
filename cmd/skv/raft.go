@@ -393,7 +393,7 @@ func NewKVNode(kv kv.KV, opts ...NodeOption) *KVNode {
 			return err
 		},
 		func() error {
-			nd.raftTransport, err = raft.NewTCPTransport(tcpaddr.String(), tcpaddr, 3, time.Second*3, os.Stderr)
+			nd.raftTransport, err = raft.NewTCPTransport(tcpaddr.String(), nil, 3, time.Second*3, os.Stderr)
 			return err
 		},
 		func() error {

@@ -1,0 +1,14 @@
+raft:
+  bind: :9528
+  #bootstrap: true # should be set only at first boot
+  id: server-1 # inject from env or by command line
+  storage: ""
+skv:
+  threshold:
+    count: 1024
+    size: 1048576
+  debug: true
+  dumppolicy: 1
+  host:  ''
+  port: 9527
+  root: /tmp/skv

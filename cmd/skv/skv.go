@@ -48,7 +48,17 @@ var rootCmd = &cobra.Command{
 		host := viper.GetString(kSkvHost)
 		port := viper.GetString(kSkvPort)
 
-		fmt.Printf("listening on %s\n", fmt.Sprintf("%s:%s", host, port))
+		localIP, err := firstAddress()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		if host == "" {
+			host = localIP
+		}
+
+		var rpcAddress = net.JoinHostPort(host, port)
+		fmt.Printf("listening on [%s]\n", rpcAddress)
 
 		var grpcServer *grpc.Server
 		var db *SKVServerImpl
@@ -62,9 +72,8 @@ var rootCmd = &cobra.Command{
 			var ctx, cancel = context.WithTimeout(context.Background(), time.Second*2)
 			defer cancel()
 
-			var rpcAddress = fmt.Sprintf("%s:%s", host, port)
 			lc := net.ListenConfig{}
-			listener, err := lc.Listen(ctx, "tcp", rpcAddress)
+			listener, err := lc.Listen(ctx, "tcp4", rpcAddress)
 			if err != nil {
 				log.Fatalln(err.Error())
 			}
@@ -80,9 +89,19 @@ var rootCmd = &cobra.Command{
 				kv.WithDumpSizeThreshold(viper.GetInt(kSkvSizeThreshold)),
 			}
 
+			var bind = viper.GetString(kRaftBind)
+			tcpaddr, err := net.ResolveTCPAddr("tcp4", bind)
+			if err != nil {
+				log.Fatalf("invalid bind address: %s\n", bind)
+			}
+			if tcpaddr.IP == nil || tcpaddr.IP.IsUnspecified() {
+				bind = fmt.Sprintf("%s:%d", localIP, tcpaddr.Port)
+				log.Printf("update bind to %s\n", bind)
+			}
+
 			var serverId = viper.GetString(kRaftServerID)
 			if len(serverId) == 0 {
-				serverId = viper.GetString(kRaftBind)
+				serverId = bind
 			}
 
 			var raftStorage = fmt.Sprintf("%s/raft", viper.GetString(kSkvRoot))
@@ -91,7 +110,7 @@ var rootCmd = &cobra.Command{
 
 			var ndopts = []NodeOption{
 				WithDebug(viper.GetBool(kSkvDebug)),
-				WithBind(viper.GetString(kRaftBind)),
+				WithBind(bind),
 				WithRpcAddress(rpcAddress),
 				WithID(serverId),
 				WithStorageRoot(raftStorage),
@@ -103,6 +122,8 @@ var rootCmd = &cobra.Command{
 				}
 				ndopts = append(ndopts, WithBootstrapAddress(viper.GetString(kRaftBootstrapAddress)))
 			}
+
+			viper.Debug()
 
 			db = NewSKVServer(kvOpts, ndopts)
 
@@ -192,7 +213,7 @@ func init() {
 
 	coreSets.BoolP(kSkvDebug, "D", false, "turn on debug")
 	coreSets.StringP(kSkvPort, "p", "", "skv coordinator's port")
-	coreSets.StringP(kSkvHost, "H", "localhost", "listen host")
+	coreSets.StringP(kSkvHost, "H", "", "listen host")
 	coreSets.StringP(kSkvRoot, "r", "/tmp/skv", "root path for storage")
 	coreSets.StringVarP(&cfg, kSkvConfig, "c", "", "config path")
 	coreSets.Int(kSkvDumpPolicy, kv.DumpByCount, "memtable dump to sstable policy")
@@ -211,6 +232,48 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 
 	statusCmd.Flags().BoolP("verbose", "V", false, "report details")
+}
+
+func firstAddress() (string, error) {
+	ifs, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifs {
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		if iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		as, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, a := range as {
+			var ip net.IP
+			switch v := a.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			ip = ip.To4()
+			if ip == nil {
+				continue
+			}
+
+			return ip.String(), nil
+		}
+	}
+
+	return "", nil
 }
 
 func main() {
