@@ -7,12 +7,13 @@ import (
 )
 
 type SKVSnapshot struct {
+	nd *KVNode
 }
 
 func (ss *SKVSnapshot) Persist(sink raft.SnapshotSink) error {
 	log.Printf("Persist: sink(%s)\n", sink.ID())
 
-	return sink.Close()
+	return ss.nd.db.MakeSnapshot(sink)
 }
 
 func (ss *SKVSnapshot) Release() {

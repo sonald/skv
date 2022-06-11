@@ -2,16 +2,19 @@ package kv
 
 import (
 	"fmt"
-	"github.com/sonald/skv/internal/pkg/storage"
-	bd "github.com/sonald/skv/internal/pkg/storage/backend/disk"
-	_ "github.com/sonald/skv/internal/pkg/storage/backend/mem"
+	"io"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sonald/skv/internal/pkg/storage"
+	bd "github.com/sonald/skv/internal/pkg/storage/backend/disk"
+	_ "github.com/sonald/skv/internal/pkg/storage/backend/mem"
 )
 
 type dumpJob struct {
@@ -46,6 +49,12 @@ func (kv *KVImpl) Stats() {
 
 func (kv *KVImpl) buildSegmentName(seq int) string {
 	return fmt.Sprintf("%s/segment%08d", kv.root, seq)
+}
+
+func (kv *KVImpl) buildSnapshotName() string {
+	timestamp := time.Now().UnixMilli()
+	ts := strconv.FormatInt(timestamp, 10)
+	return fmt.Sprintf("%s/%08d-snapshot", kv.root, ts)
 }
 
 func (kv *KVImpl) BuildInternalKey(userKey string, tag uint8) *storage.InternalKey {
@@ -180,6 +189,40 @@ func (kv *KVImpl) Get(key string) ([]byte, error) {
 	return nil, storage.ErrNotFound
 }
 
+func (kv *KVImpl) MakeSnapshot(w io.WriteCloser) error {
+	ds := storage.GetStorage("disk", storage.Options{
+		Args: map[string]interface{}{
+			bd.SegmentNameOpt:        "snapshot",
+			bd.DiskWriterOverrideOpt: w,
+			storage.SegmentOpenMode:  storage.SegmentOpenModeWR,
+		},
+	})
+	// no need to close
+	//defer ds.Close()
+
+	var sequence uint64 = 1
+	kv.Scan(func(k string, v []byte) bool {
+		newKey := storage.KeyFromUser([]byte(k), sequence, storage.TagValue)
+		sequence++
+		ds.Put(newKey, v)
+		return true
+	})
+
+	return nil
+}
+
+func (kv *KVImpl) GetSnapshot(r io.ReadCloser) (storage.Storage, error) {
+	ds := storage.GetStorage("disk", storage.Options{
+		Args: map[string]interface{}{
+			bd.SegmentNameOpt:        "snapshot",
+			bd.DiskReaderOverrideOpt: r,
+			storage.SegmentOpenMode:  storage.SegmentOpenModeRO,
+		},
+	})
+
+	return ds, nil
+}
+
 // Scan
 // FIXME: performance is bad
 // this is like replaying all put operations
@@ -224,7 +267,7 @@ func (kv *KVImpl) Scan(f func(k string, v []byte) bool) {
 
 func nextUsableSequence(root string) int {
 	var maxSeq = 0
-	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	filepath.WalkDir(root, func(_ string, d fs.DirEntry, _ error) error {
 		if !d.Type().IsRegular() {
 			return nil
 		}
@@ -233,7 +276,7 @@ func nextUsableSequence(root string) int {
 			return nil
 		}
 		var seq int
-		_, err = fmt.Sscanf(d.Name(), "segment%d", &seq)
+		_, err := fmt.Sscanf(d.Name(), "segment%d", &seq)
 		if err != nil {
 			log.Printf("walk: %s %s\n", d.Name(), err.Error())
 		}

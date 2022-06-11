@@ -15,22 +15,18 @@ import (
 )
 
 func init() {
-	log.Println("disk backend init")
 	storage.RegisterBackend("disk", NewDiskStorage)
 }
 
 type DiskStorage struct {
 	segment string
 	w       io.WriteCloser
-	r       io.ReadSeekCloser
+	r       io.ReadCloser
 	index   Index
 	// only used when opened read
-	filter Filter
+	filter    Filter
+	transient bool
 }
-
-const (
-	SegmentNameOpt = "name"
-)
 
 func NewDiskStorage(options storage.Options) storage.Storage {
 	ds := &DiskStorage{
@@ -45,12 +41,23 @@ func NewDiskStorage(options storage.Options) storage.Storage {
 	var err error
 	switch mode {
 	case storage.SegmentOpenModeRO:
-		log.Printf("open disk storage %s\n", ds.segment)
-		ds.r, err = os.Open(ds.segment)
+		if opt, ok := options.Args[DiskReaderOverrideOpt]; ok {
+			ds.r = opt.(io.ReadCloser)
+			ds.transient = true
+		} else {
+			log.Printf("open disk storage %s\n", ds.segment)
+			ds.r, err = os.Open(ds.segment)
+		}
 
 	case storage.SegmentOpenModeWR:
-		log.Printf("create disk storage %s\n", ds.segment)
-		ds.w, err = os.OpenFile(ds.segment, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+		if opt, ok := options.Args[DiskWriterOverrideOpt]; ok {
+			log.Printf("override disk storage writer\n")
+			ds.w = opt.(io.WriteCloser)
+			ds.transient = true
+		} else {
+			log.Printf("create disk storage %s\n", ds.segment)
+			ds.w, err = os.OpenFile(ds.segment, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+		}
 
 	case storage.SegmentOpenModeRW:
 		log.Printf("create disk storage rw %s\n", ds.segment)
@@ -65,8 +72,7 @@ func NewDiskStorage(options storage.Options) storage.Storage {
 		return &noop.NoopStorage{}
 	}
 
-	//TODO: set by option
-	if ds.r != nil {
+	if ds.r != nil && !ds.transient {
 		ds.filter = NewBloomFilter(ds)
 	}
 
@@ -78,8 +84,7 @@ func (ds *DiskStorage) IsIndexFile() bool {
 }
 
 func (ds *DiskStorage) LoadIndex() {
-	if ds.r != nil && ds.index == nil && !ds.IsIndexFile() {
-		//TODO: load index
+	if ds.r != nil && !ds.transient && ds.index == nil && !ds.IsIndexFile() {
 		ds.index = LoadIndex(ds.segment)
 	}
 }
@@ -114,20 +119,25 @@ func (ds *DiskStorage) Get(key *storage.InternalKey) ([]byte, error) {
 		}
 	}
 
-	// Lazy loading
-	ds.LoadIndex()
+	seeker, ok := ds.r.(io.Seeker)
+	if ok {
+		// Lazy loading
+		ds.LoadIndex()
 
-	if ds.index != nil {
-		if offset, err = ds.index.GetOffset(key); err != nil {
-			log.Println(err)
-			offset = 0
+		if ds.index != nil {
+			if offset, err = ds.index.GetOffset(key); err != nil {
+				log.Println(err)
+				offset = 0
+			}
+			log.Printf("fast offset(%d) by index", offset)
 		}
-		log.Printf("fast offset(%d) by index", offset)
-	}
 
-	_, err = ds.r.Seek(offset, io.SeekStart)
-	if err != nil {
-		return nil, err
+		_, err = seeker.Seek(offset, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		log.Println("Get: r is not a seeker")
 	}
 
 	br := bufio.NewReader(ds.r)
@@ -202,7 +212,13 @@ func (ds *DiskStorage) Count() int {
 }
 
 func (ds *DiskStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
-	ds.r.Seek(0, io.SeekStart)
+	seeker, ok := ds.r.(io.Seeker)
+	if ok {
+		seeker.Seek(0, io.SeekStart)
+	} else {
+		log.Println("Scan: r is not a seeker")
+	}
+
 	br := bufio.NewReader(ds.r)
 
 	var user_key []byte
@@ -217,7 +233,7 @@ func (ds *DiskStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 			break
 		}
 
-		if bytes.Compare(user_key, key.Key()) != 0 {
+		if !bytes.Equal(user_key, key.Key()) {
 			if !f(key, val) {
 				break
 			}

@@ -367,3 +367,51 @@ func TestKV_DirectDel(t *testing.T) {
 		log.Printf("val: %v", val)
 	})
 }
+
+func TestKV_MultiDel(t *testing.T) {
+	var skopts = []KVOption{
+		WithRoot(t.TempDir()),
+		WithDumpPolicy(DumpByCount),
+		WithDumpCountThreshold(10),
+		WithDumpSizeThreshold(1000),
+	}
+
+	r := rand.New(rand.NewSource(0xdeadbeef))
+	key99val := []byte(fmt.Sprintf("value%04d", r.Intn(1000)))
+
+	t.Run("batchput", func(t *testing.T) {
+		db := NewKV(skopts...)
+		defer db.Close()
+
+		db.Put("key99", []byte("foobar"))
+		db.Del("key99")
+		db.Put("key99", []byte("world"))
+		db.Put("key99", []byte("hello"))
+		db.Put("key99", key99val)
+
+		for i := 0; i < 30; i++ {
+			key := fmt.Sprintf("key%02d", r.Intn(40))
+			db.Put(key, []byte(fmt.Sprintf("value%d", r.Int31())))
+		}
+	})
+
+	t.Run("get deleted", func(t *testing.T) {
+		db := NewKV(skopts...)
+		defer db.Close()
+
+		val, err := db.Get("key99")
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+
+		if !bytes.Equal(val, key99val) {
+			t.Fatalf("wrong key99 value: %s\n", string(val))
+		}
+
+		db.Scan(func(k string, v []byte) bool {
+			log.Printf("\t%s - %s", k, string(v))
+			return true
+		})
+		log.Printf("val: %v", val)
+	})
+}

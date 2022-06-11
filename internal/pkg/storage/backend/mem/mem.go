@@ -35,7 +35,7 @@ func (ms MemStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 	elem := ms.sl.Front()
 	for elem != nil {
 		ikey := elem.Key().(*storage.InternalKey)
-		if bytes.Compare(user_key, ikey.Key()) != 0 {
+		if !bytes.Equal(user_key, ikey.Key()) {
 			if !f(ikey, elem.Value.([]byte)) {
 				return
 			}

@@ -194,8 +194,6 @@ func (nd *KVNode) Apply(l *raft.Log) interface{} {
 			return fmt.Errorf("log contains invalid event data")
 		}
 
-		log.Printf("FSM.Apply(index %d, term %d)\n", l.Index, l.Term)
-
 		if e.kind == EventPut {
 			log.Printf("FSM.Apply Put(%s)\n", e.key)
 			return nd.db.Put(e.key, e.payload)
@@ -208,14 +206,22 @@ func (nd *KVNode) Apply(l *raft.Log) interface{} {
 }
 
 func (nd *KVNode) Snapshot() (raft.FSMSnapshot, error) {
-	log.Printf("FSM.Snapshot\n")
-
-	return &SKVSnapshot{}, nil
+	return &SKVSnapshot{nd: nd}, nil
 }
 
 func (nd *KVNode) Restore(snapshot io.ReadCloser) error {
 	log.Printf("FSM.Restore\n")
-	return nil
+	ss, err := nd.db.GetSnapshot(snapshot)
+	if err != nil {
+		return err
+	}
+
+	ss.Scan(func(k *storage.InternalKey, v []byte) bool {
+		log.Printf("restore(%s = %s)\n", string(k.Key()), string(v))
+		nd.db.Put(string(k.Key()), v)
+		return true
+	})
+	return err
 }
 
 func seqApply(cbs ...func() error) error {
