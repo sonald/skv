@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  node_1:
+    image: sonald/skv
+    environment:
+      - SKV_RAFT_ID="skv_node1"
+      - SKV_RAFT_BOOTSTRAP=true
+
+  node_2:
+    image: sonald/skv
+    environment:
+      - SKV_RAFT_ID="skv_node2"
+      - SKV_RAFT_BOOTSTRAPADDRESS=node_1:9527 # can not use quotes here: "node_1:9527" won't work
+
+  node_3:
+    image: sonald/skv
+    environment:
+      - SKV_RAFT_ID="skv_node3"
+      - SKV_RAFT_BOOTSTRAPADDRESS=node_1:9527

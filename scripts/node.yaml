@@ -1,6 +1,5 @@
 raft:
   bind: :9528
-  #bootstrap: true # should be set only at first boot
   id: server-1 # inject from env or by command line
   storage: ""
 skv:

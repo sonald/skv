@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sonald/skv/internal/pkg/kv"
+	"github.com/sonald/skv/internal/pkg/node"
 	"github.com/sonald/skv/internal/pkg/rpc"
 	"github.com/sonald/skv/internal/pkg/storage"
 	"github.com/spf13/cobra"
@@ -61,7 +62,7 @@ var rootCmd = &cobra.Command{
 		fmt.Printf("listening on [%s]\n", rpcAddress)
 
 		var grpcServer *grpc.Server
-		var db *SKVServerImpl
+		var dbnode *node.SKVServerImpl
 
 		sigchan := make(chan os.Signal, 1)
 		signal.Notify(sigchan, os.Interrupt, syscall.SIGTERM)
@@ -108,27 +109,25 @@ var rootCmd = &cobra.Command{
 
 			var bootstrap = viper.GetBool(kRaftBootstrap)
 
-			var ndopts = []NodeOption{
-				WithDebug(viper.GetBool(kSkvDebug)),
-				WithBind(bind),
-				WithRpcAddress(rpcAddress),
-				WithID(serverId),
-				WithStorageRoot(raftStorage),
-				WithBootstrap(viper.GetBool(kRaftBootstrap)),
+			var ndopts = []node.NodeOption{
+				node.WithDebug(viper.GetBool(kSkvDebug)),
+				node.WithBind(bind),
+				node.WithRpcAddress(rpcAddress),
+				node.WithID(serverId),
+				node.WithStorageRoot(raftStorage),
+				node.WithBootstrap(bootstrap),
 			}
 			if !bootstrap {
 				if len(viper.GetString(kRaftBootstrapAddress)) == 0 {
 					log.Fatalln("non-bootstrap node needs specify leader's address")
 				}
-				ndopts = append(ndopts, WithBootstrapAddress(viper.GetString(kRaftBootstrapAddress)))
+				ndopts = append(ndopts, node.WithBootstrapAddress(viper.GetString(kRaftBootstrapAddress)))
 			}
 
-			viper.Debug()
+			dbnode = node.NewSKVServer(kvOpts, ndopts)
 
-			db = NewSKVServer(kvOpts, ndopts)
-
-			rpc.RegisterSKVServer(grpcServer, db)
-			rpc.RegisterPeerServer(grpcServer, db)
+			rpc.RegisterSKVServer(grpcServer, dbnode)
+			rpc.RegisterPeerServer(grpcServer, dbnode)
 
 			if err := grpcServer.Serve(listener); err != nil {
 				if err != net.ErrClosed {
@@ -143,18 +142,17 @@ var rootCmd = &cobra.Command{
 		select {
 		case <-sigchan:
 			log.Printf("interrupted\n")
+			close(closed)
 			break
 		case <-closed:
 			log.Printf("shutdown\n")
 			break
 		}
 
-		db.Shutdown()
+		dbnode.Shutdown()
 		if grpcServer != nil {
 			grpcServer.GracefulStop()
 		}
-
-		<-closed
 	},
 }
 
@@ -197,6 +195,7 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.BindEnv(kSkvHost, "host")
 	viper.BindEnv(kSkvPort, "port")
+	viper.BindEnv(kRaftBootstrapAddress, "join")
 	viper.BindPFlags(coreSets)
 	viper.BindPFlags(raftSets)
 	viper.SetDefault(kSkvPort, "9527")
@@ -274,12 +273,4 @@ func firstAddress() (string, error) {
 	}
 
 	return "", nil
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-
 }
