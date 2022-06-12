@@ -17,19 +17,19 @@ type MemStorage struct {
 	size int
 }
 
-func (ms MemStorage) Close() {
+func (ms *MemStorage) Close() {
 	ms.sl = nil
 }
 
-func (ms MemStorage) Size() int {
+func (ms *MemStorage) Size() int {
 	return 0
 }
 
-func (ms MemStorage) Count() int {
+func (ms *MemStorage) Count() int {
 	return ms.sl.Len()
 }
 
-func (ms MemStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
+func (ms *MemStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 	var user_key []byte
 
 	elem := ms.sl.Front()
@@ -46,7 +46,7 @@ func (ms MemStorage) Scan(f func(k *storage.InternalKey, v []byte) bool) {
 	}
 }
 
-func (ms MemStorage) Put(key *storage.InternalKey, value []byte) error {
+func (ms *MemStorage) Put(key *storage.InternalKey, value []byte) error {
 	//FIXME: test this overhead
 	if elem := ms.sl.Find(key); elem == nil {
 		ms.size += len(key.Key()) + len(value)
@@ -57,14 +57,14 @@ func (ms MemStorage) Put(key *storage.InternalKey, value []byte) error {
 	return nil
 }
 
-func (ms MemStorage) Get(key *storage.InternalKey) ([]byte, error) {
+func (ms *MemStorage) Get(key *storage.InternalKey) ([]byte, error) {
 	elem := ms.sl.Find(key)
 	if elem == nil {
 		return nil, storage.ErrNotFound
 	}
 
 	ikey := elem.Key().(*storage.InternalKey)
-	if bytes.Compare(ikey.Key(), key.Key()) == 0 {
+	if bytes.Equal(ikey.Key(), key.Key()) {
 		switch ikey.Tag() {
 		case storage.TagValue:
 			return elem.Value.([]byte), nil
@@ -75,13 +75,17 @@ func (ms MemStorage) Get(key *storage.InternalKey) ([]byte, error) {
 	return nil, storage.ErrNotFound
 }
 
-func (ms MemStorage) Del(key *storage.InternalKey) error {
+func (ms *MemStorage) Del(key *storage.InternalKey) error {
+	if key.Tag() != storage.TagTombstone {
+		key = storage.KeyFromUser(key.Key(), key.Sequence(), storage.TagTombstone)
+	}
+
 	if elem := ms.sl.Find(key); elem == nil {
 		ms.sl.Set(key, []byte{})
 
 	} else {
 		ikey := elem.Key().(*storage.InternalKey)
-		if bytes.Compare(ikey.Key(), key.Key()) != 0 {
+		if !bytes.Equal(ikey.Key(), key.Key()) {
 			return storage.ErrNotFound
 		}
 		if ikey.Tag() != storage.TagTombstone {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -54,7 +55,7 @@ func (kv *KVImpl) buildSegmentName(seq int) string {
 func (kv *KVImpl) buildSnapshotName() string {
 	timestamp := time.Now().UnixMilli()
 	ts := strconv.FormatInt(timestamp, 10)
-	return fmt.Sprintf("%s/%08d-snapshot", kv.root, ts)
+	return fmt.Sprintf("%s/%s-snapshot", kv.root, ts)
 }
 
 func (kv *KVImpl) BuildInternalKey(userKey string, tag uint8) *storage.InternalKey {
@@ -156,11 +157,12 @@ func (kv *KVImpl) fastGet(key *storage.InternalKey) ([]byte, error) {
 
 //TODO: conccurent read?
 func (kv *KVImpl) Get(key string) ([]byte, error) {
-	ikey := storage.KeyFromUser([]byte(key), kv.keySequence, storage.TagValue)
+	ikey := storage.KeyFromUser([]byte(key), math.MaxUint64, storage.TagValue)
 
 	if val, err := kv.fastGet(ikey); err == storage.ErrNotFound {
 		// go to disk
 	} else {
+		// err may be ErrKeyDeleted
 		return val, err
 	}
 
@@ -178,9 +180,9 @@ func (kv *KVImpl) Get(key string) ([]byte, error) {
 		}
 
 		if val, err := ds.Get(ikey); err == storage.ErrNotFound {
-
 		} else {
 			ds.Close()
+			// err may be ErrKeyDeleted
 			return val, err
 		}
 		ds.Close()
@@ -233,21 +235,27 @@ func (kv *KVImpl) Scan(f func(k string, v []byte) bool) {
 	defer ms.Close()
 
 	for i := 0; i < kv.segmentSeq; i++ {
-		ds := storage.GetStorage("disk", storage.Options{
-			Args: map[string]interface{}{
-				bd.SegmentNameOpt:       kv.buildSegmentName(i),
-				storage.SegmentOpenMode: storage.SegmentOpenModeRO,
-			},
-		})
+		func() {
+			ds := storage.GetStorage("disk", storage.Options{
+				Args: map[string]interface{}{
+					bd.SegmentNameOpt:       kv.buildSegmentName(i),
+					storage.SegmentOpenMode: storage.SegmentOpenModeRO,
+				},
+			})
 
-		defer ds.Close()
+			defer ds.Close()
 
-		ds.Scan(func(k *storage.InternalKey, v []byte) bool {
-			newKey := storage.KeyFromUser(k.Key(), sequence, uint8(k.Tag()))
-			sequence++
+			ds.Scan(func(k *storage.InternalKey, v []byte) bool {
+				newKey := storage.KeyFromUser(k.Key(), sequence, uint8(k.Tag()))
+				sequence++
 
-			return ms.Put(newKey, v) == nil
-		})
+				if k.Tag() == storage.TagTombstone {
+					log.Printf("Scan: map tombstone to del(%s)\n", string(k.Key()))
+					return ms.Del(newKey) == nil
+				}
+				return ms.Put(newKey, v) == nil
+			})
+		}()
 	}
 
 	if kv.memtable != nil {
@@ -255,18 +263,25 @@ func (kv *KVImpl) Scan(f func(k string, v []byte) bool) {
 			newKey := storage.KeyFromUser(k.Key(), sequence, uint8(k.Tag()))
 			sequence++
 
+			if k.Tag() == storage.TagTombstone {
+				return ms.Del(newKey) == nil
+			}
+
 			return ms.Put(newKey, v) == nil
 		})
 	}
 
 	ms.Scan(func(k *storage.InternalKey, v []byte) bool {
+		if k.Tag() == storage.TagTombstone {
+			return true
+		}
 		f(string(k.Key()), v)
 		return true
 	})
 }
 
 func nextUsableSequence(root string) int {
-	var maxSeq = 0
+	var maxSeq = -1
 	filepath.WalkDir(root, func(_ string, d fs.DirEntry, _ error) error {
 		if !d.Type().IsRegular() {
 			return nil
@@ -293,47 +308,44 @@ func nextUsableSequence(root string) int {
 }
 
 func (kv *KVImpl) startJobManager() {
-
-	go func() {
-		for {
-			select {
-			case job, ok := <-kv.jobs:
-				if !ok {
-					break
-				}
-
-				log.Printf("process job for %s\n", job.segment)
-				{
-					ds := storage.GetStorage("disk", storage.Options{
-						Args: map[string]interface{}{
-							bd.SegmentNameOpt:       job.segment,
-							storage.SegmentOpenMode: storage.SegmentOpenModeWR,
-						},
-					})
-
-					job.s.Scan(func(k *storage.InternalKey, v []byte) bool {
-						return ds.Put(k, v) == nil
-					})
-
-					ds.Close()
-					job.s.Close()
-				}
-
-				{
-					kv.lock.Lock()
-					if kv.outgoings[0].s != job.s || kv.outgoings[0].segment != job.segment {
-						log.Fatalf("mismatch job data\n")
-					}
-					kv.outgoings = kv.outgoings[1:]
-					kv.lock.Unlock()
-				}
-
-				kv.wg.Done()
+	for {
+		select {
+		case job, ok := <-kv.jobs:
+			if !ok {
+				break
 			}
-		}
 
-		log.Println("quit background job")
-	}()
+			log.Printf("process job for %s\n", job.segment)
+			{
+				ds := storage.GetStorage("disk", storage.Options{
+					Args: map[string]interface{}{
+						bd.SegmentNameOpt:       job.segment,
+						storage.SegmentOpenMode: storage.SegmentOpenModeWR,
+					},
+				})
+
+				job.s.Scan(func(k *storage.InternalKey, v []byte) bool {
+					return ds.Put(k, v) == nil
+				})
+
+				ds.Close()
+				job.s.Close()
+			}
+
+			{
+				kv.lock.Lock()
+				if kv.outgoings[0].s != job.s || kv.outgoings[0].segment != job.segment {
+					log.Fatalf("mismatch job data\n")
+				}
+				kv.outgoings = kv.outgoings[1:]
+				kv.lock.Unlock()
+			}
+
+			kv.wg.Done()
+		}
+	}
+
+	log.Println("quit background job")
 }
 
 func NewKV(opts ...KVOption) KV {
@@ -361,7 +373,7 @@ func NewKV(opts ...KVOption) KV {
 	}
 
 	kv.segmentSeq = nextUsableSequence(kv.root)
-	kv.startJobManager()
+	go kv.startJobManager()
 
 	return kv
 }

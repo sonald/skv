@@ -207,11 +207,11 @@ func TestKV_BloomFilter(t *testing.T) {
 			key := fmt.Sprintf("key%02d", i)
 			v, err := db.Get(key)
 			if err != nil {
-				log.Fatalf("get(%s) failed\n", key)
+				t.Fatalf("get(%s) failed\n", key)
 			}
 
 			if string(v) != fmt.Sprintf("value%d", i) {
-				log.Fatalf("get(%s) wrong value\n", key)
+				t.Fatalf("get(%s) wrong value\n", key)
 			}
 		}
 	})
@@ -242,7 +242,7 @@ func TestKV_Del(t *testing.T) {
 				if v, err := db.Get("key99"); err != nil {
 					t.Fatalf("get key99 failed: %s\n", err.Error())
 				} else {
-					if bytes.Compare(v, key99val) != 0 {
+					if !bytes.Equal(v, key99val) {
 						t.Fatalf("get wrong value of key99\n")
 					}
 				}
@@ -347,7 +347,16 @@ func TestKV_DirectDel(t *testing.T) {
 
 		err := db.Del("key99")
 		if err != nil {
-			log.Fatalf("del failed: %v", err)
+			t.Fatalf("del failed: %v", err)
+		}
+
+		val, err := db.Get("key99")
+		if err != nil && err != storage.ErrKeyDeleted {
+			t.Fatalf("get failed with wrong err: %v", err)
+		}
+
+		if bytes.Equal(val, key99val) {
+			t.Fatalf("should not get deleted value\n")
 		}
 	})
 
@@ -355,16 +364,19 @@ func TestKV_DirectDel(t *testing.T) {
 		db := NewKV(skopts...)
 		defer db.Close()
 
-		val, err := db.Get("key99")
-		if err != nil {
-			log.Fatalf("get failed: %v", err)
-		}
-
 		db.Scan(func(k string, v []byte) bool {
 			log.Printf("\t%s - %s", k, string(v))
 			return true
 		})
-		log.Printf("val: %v", val)
+
+		val, err := db.Get("key99")
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+
+		if bytes.Equal(val, key99val) {
+			t.Fatalf("should not get deleted value\n")
+		}
 	})
 }
 

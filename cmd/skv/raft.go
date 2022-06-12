@@ -198,7 +198,7 @@ func (nd *KVNode) Apply(l *raft.Log) interface{} {
 			log.Printf("FSM.Apply Put(%s)\n", e.key)
 			return nd.db.Put(e.key, e.payload)
 		} else {
-			log.Printf("FSM.Apply Del\n")
+			log.Printf("FSM.Apply Del(%s)\n", e.key)
 			return nd.db.Del(e.key)
 		}
 	}
